@@ -1,0 +1,2358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Makers sandbox</title>
+<style>
+:root{
+  --bg:#f4f3ef;--panel:#ffffff;--line:rgba(0,0,0,.16);--text:#1f1f1d;--mut:#6b6a64;--dot:rgba(0,0,0,.12);
+  --hw:#D85A30;--logic:#1D9E75;--data:#BA7517;--view:#7F77DD;--ok:#1D9E75;--bad:#C0392B;
+  --t-num:#1D9E75;--t-bool:#7F77DD;--t-text:#BA7517;--t-any:#888780;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#1a1a18;--panel:#262624;--line:rgba(255,255,255,.18);--text:#ecebe5;--mut:#a3a199;--dot:rgba(255,255,255,.1)}
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;-webkit-text-size-adjust:100%}
+body{display:flex;flex-direction:column}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+#top{display:flex;gap:8px;align-items:center;padding:8px 10px;padding-top:calc(8px + env(safe-area-inset-top));background:var(--panel);border-bottom:1px solid var(--line);z-index:5}
+#projSel{flex:1;min-width:0;height:36px;border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:0 8px;font-size:15px;font-weight:600}
+.ib{width:38px;height:36px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:18px;line-height:1}
+.ib:disabled{color:var(--mut);cursor:default}
+#vp{position:relative;flex:1;overflow:hidden;touch-action:none;background-image:radial-gradient(var(--dot) 1.2px,transparent 1.3px);background-size:24px 24px}
+#world{position:absolute;left:0;top:0;transform-origin:0 0}
+#wires,#wtmp{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;pointer-events:none}
+.wire{fill:none;stroke-width:2.5;stroke-linecap:round}
+.wire.sel{stroke-width:5}
+.whit{fill:none;stroke:transparent;stroke-width:18;pointer-events:stroke;cursor:pointer}
+.mline{fill:none;stroke:var(--mut);stroke-width:2;stroke-dasharray:6 6}
+.tmp{fill:none;stroke-width:2.5;stroke-dasharray:4 4;stroke-linecap:round}
+.node{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:10px;font-size:12px;user-select:none;-webkit-user-select:none;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.node.sel{outline:2px solid var(--text);outline-offset:1px}
+.node.dim{opacity:.4}
+.node.fitok{outline:2px solid var(--ok);outline-offset:1px}
+.cat-hw{--cat:var(--hw)}.cat-logic{--cat:var(--logic)}.cat-in{--cat:var(--data)}.cat-view{--cat:var(--view)}
+.nhead{height:32px;display:flex;align-items:center;gap:8px;padding:0 10px;border-bottom:1px solid var(--line);border-radius:9px 9px 0 0;background:color-mix(in srgb,var(--cat) 20%,var(--panel));cursor:grab}
+.ntitle{font-weight:600;font-size:13px;white-space:nowrap}
+.nsub{color:var(--mut);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.nrows{display:block}
+.row{position:relative;height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;color:var(--mut);gap:6px}
+.rl,.rr{display:flex;align-items:center;gap:5px;min-width:0}
+.ov{font-family:var(--mono);font-size:11px;color:var(--text);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.port{position:absolute;top:calc(50% - 6px);width:12px;height:12px;border-radius:50%;background:var(--pc,#888);border:2px solid var(--panel);cursor:crosshair}
+.port::after{content:"";position:absolute;inset:-11px}
+.port.in{left:-7px}.port.out{right:-7px}
+.port.cand{box-shadow:0 0 0 3px color-mix(in srgb,var(--pc) 40%,transparent)}
+.port.near{box-shadow:0 0 0 4px var(--text)}
+.dv{width:54px;height:20px;border:1px solid var(--line);border-radius:5px;background:var(--bg);padding:0 4px;font-size:11px}
+.row.wired .dv{display:none}
+.nbody{padding:6px 10px 10px;display:flex;flex-direction:column;gap:6px}
+.nbody:empty{display:none}
+.nbody input[type=text],.nbody input[type=number],.nbody select,.nbody textarea{width:100%;border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:4px 6px;font-size:12px}
+.nbody textarea{font-family:var(--mono);resize:none;line-height:1.4}
+.nbody input[type=range]{width:100%;margin:0}
+.nbody .two{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.nbody .lbl{font-size:11px;color:var(--mut)}
+.big{font-family:var(--mono);font-size:20px;font-weight:600;color:var(--text);word-break:break-word}
+.err{color:var(--bad);font-size:11px;padding:0 10px 8px;font-family:var(--mono);white-space:pre-wrap}
+.err:empty{display:none}
+.btn{border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:7px 10px;font-size:13px}
+.btn.pri{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
+.btn.sm{padding:4px 8px;font-size:12px}
+.btn.on{background:var(--text);color:var(--bg)}
+.chipx{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 9px;font-size:12px;background:var(--bg)}
+.sw{width:9px;height:9px;border-radius:50%;display:inline-block}
+.msg-ok{color:var(--ok)}.msg-bad{color:var(--bad)}
+#mini{position:absolute;top:8px;right:8px;width:96px;height:64px;border:1px solid var(--line);border-radius:8px;background:color-mix(in srgb,var(--panel) 88%,transparent);z-index:3}
+#bar{display:flex;align-items:center;gap:8px;padding:8px 10px;padding-bottom:calc(8px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--line);z-index:5}
+#hint{flex:1;min-width:0;font-size:11px;color:var(--mut);line-height:1.3}
+#selbar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(66px + env(safe-area-inset-bottom));display:none;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px;z-index:6;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+#selbar.show{display:flex}
+#back{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .15s;z-index:20}
+#back.open{opacity:1;pointer-events:auto}
+#sheet{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:760px;max-height:88vh;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0;transform:translateY(108%);transition:transform .2s;z-index:30}
+#sheet.open{transform:none}
+#shHead{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+#shBody{min-height:0;overflow:auto;padding:14px 16px calc(18px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+.sec{font-size:12px;color:var(--mut);margin:16px 0 8px}
+.sec:first-child{margin-top:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:9px 10px;border-left:4px solid var(--cat,var(--line))}
+.tile b{display:block;font-size:13px}
+.tile span{display:block;font-size:11px;color:var(--mut);margin-top:2px}
+.dcv{width:100%;height:auto;display:block;image-rendering:pixelated;border:1px solid var(--line);border-radius:4px;background:#fff;touch-action:none}
+.flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.f2{display:grid;grid-template-columns:78px minmax(0,1fr);gap:8px;align-items:center;margin:8px 0}
+.f2 label{font-size:12px;color:var(--mut)}
+.f2 input[type=text],.f2 input[type=number],.f2 select{width:100%;height:32px;border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:0 8px;font-size:14px}
+.f2 input[type=color]{width:44px;height:32px;padding:0;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+pre.code{font-family:var(--mono);font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-word;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:10px 0 0;user-select:text;-webkit-user-select:text}
+.note{font-size:12px;color:var(--mut);margin:8px 0 0;line-height:1.45}
+.pins{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:11px}
+.pin{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:6px;padding:3px 6px;min-height:34px;background:var(--bg)}
+.pin small{color:var(--mut);font-size:10px}
+.pin.pw{background:color-mix(in srgb,var(--hw) 14%,var(--bg))}
+.pin.gd{background:color-mix(in srgb,var(--mut) 20%,var(--bg))}
+.pin.cl{color:#fff;border-color:transparent}
+.pin.cl small{color:#fff}
+#toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 14px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:88vw;text-align:center}
+#toast.show{opacity:1}
+.item{display:flex;gap:8px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.item .t{flex:1;min-width:0;font-size:13px;line-height:1.4}
+.item .t b{display:block;font-size:14px;font-weight:600}
+.item .t span{display:block;color:var(--mut);font-size:12px;margin-top:2px;line-height:1.4}
+.bdg{font-size:11px;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid var(--line);color:var(--mut)}
+.bdg.ok{color:var(--ok);border-color:var(--ok)}
+.bdg.me{color:var(--data);border-color:var(--data)}
+.bdg.sg{color:var(--view);border-color:var(--view)}
+.crow{display:block;width:100%;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:10px 12px;margin:0 0 8px}
+.crow b{display:block;font-size:14px}
+.crow span{display:block;font-size:12px;color:var(--mut);margin-top:2px;line-height:1.4}
+.crow span.msg-ok{color:var(--ok)}.crow span.msg-bad{color:var(--bad)}
+.dprev{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:4px;image-rendering:pixelated;background:#fff;margin:2px 0 6px;cursor:pointer}
+#main{flex:1;display:flex;min-height:0;position:relative}
+#vp{min-width:0}
+#con{display:none;flex-direction:column;width:460px;max-width:100%;min-height:0;border-left:1px solid var(--line);background:var(--panel)}
+#con.open{display:flex}
+#conHead{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line)}
+#conBody{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+#conTabs{padding:0 12px 8px;max-height:42%;overflow:auto;border-bottom:1px solid var(--line)}
+#conPane{flex:1;min-height:0;display:flex;flex-direction:column;padding:10px 12px;overflow:hidden}
+#conPane pre.code{flex:1;min-height:0;overflow:auto;margin:0}
+@media (max-width:820px){#con{position:absolute;right:0;top:0;bottom:0;width:min(100%,460px);z-index:40;box-shadow:-4px 0 16px rgba(0,0,0,.18)}}
+select.sm{height:34px;border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:0 8px;font-size:14px}
+</style>
+</head>
+<body>
+<div id="top">
+  <select id="projSel" aria-label="Project"></select>
+  <button id="btnUndo" class="ib" aria-label="Undo">&#8630;</button>
+  <button id="btnRedo" class="ib" aria-label="Redo">&#8631;</button>
+  <button id="btnCon" class="ib" aria-label="Console" style="font-size:14px;font-family:var(--mono)">&gt;_</button>
+  <button id="btnMenu" class="ib" aria-label="Project menu">&#8943;</button>
+</div>
+<div id="main"><div id="vp">
+  <div id="world"><svg id="wires"></svg><svg id="wtmp"><path id="tmpw" class="tmp" d=""/></svg></div>
+  <canvas id="mini" width="192" height="128"></canvas>
+</div>
+<aside id="con"><div id="conHead"><b>Console</b><button id="conClose" class="btn sm">Close</button></div><div id="conBody"></div></aside>
+</div>
+<div id="selbar"></div>
+<div id="bar">
+  <button id="btnAdd" class="btn pri">+ Add</button>
+  <button id="btnFit" class="btn">Fit</button>
+  <span id="hint">Drag a header to move. Drag from a dot to wire. Pinch to zoom.</span>
+</div>
+<div id="back"></div>
+<div id="sheet" role="dialog" aria-modal="true"><div id="shHead"><b id="shTitle"></b><button id="shClose" class="btn sm">Close</button></div><div id="shBody"></div></div>
+<div id="toast" role="status"></div>
+<input type="file" id="file" accept=".json,application/json" hidden>
+
+<script>
+(function(){
+'use strict';
+
+var KEY='makersandbox.v1',HEAD=32,ROW=26;
+var TC={num:'#1D9E75',bool:'#7F77DD',text:'#BA7517',any:'#888780'};
+var CLAIM_COLORS=['#D85A30','#1D9E75','#7F77DD','#BA7517'];
+var S=null,P=null,NM={},INW={},EL={},cache={},visiting={},sel=null,hist=[],hi=-1,SH=null,saveT=null,commitT=null;
+var TY={};
+
+function $(s,r){return (r||document).querySelector(s)}
+function h(tag,a,kids){
+  var e=document.createElement(tag);
+  if(a)for(var k in a){var v=a[k];
+    if(k==='class')e.className=v;
+    else if(k==='text')e.textContent=v;
+    else if(k==='value')e.value=v;
+    else if(k.slice(0,2)==='on')e.addEventListener(k.slice(2),v);
+    else if(v===true)e.setAttribute(k,'');
+    else if(v!==false&&v!=null)e.setAttribute(k,v);
+  }
+  (kids||[]).forEach(function(c){if(c==null)return;e.appendChild(typeof c==='string'?document.createTextNode(c):c)});
+  return e;
+}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function toast(m){var t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(function(){t.classList.remove('show')},2600)}
+function fmt(v){
+  if(v===undefined||v===null)return '-';
+  if(typeof v==='number'){if(!isFinite(v))return String(v);return String(Math.round(v*1000)/1000)}
+  if(typeof v==='boolean')return v?'true':'false';
+  if(typeof v==='string')return v.length>40?v.slice(0,40)+'...':v;
+  try{return JSON.stringify(v)}catch(e){return String(v)}
+}
+function slug(s){return String(s||'project').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'project'}
+function download(name,text,mime){
+  var b=new Blob([text],{type:mime||'text/plain'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500);
+}
+function copyText(t){
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){toast('Copied')},function(){toast('Copy blocked here. Use Download instead.')})}
+  else toast('Copy blocked here. Use Download instead.');
+}
+
+/* ---------- hardware profiles ---------- */
+var PINS='3V3,5V,2,5V,3,GND,4,14,GND,15,17,18,27,GND,22,23,3V3,24,10,GND,9,25,11,8,GND,7,0,1,5,GND,6,12,13,GND,19,16,26,20,GND,21'.split(',');
+var ALT={2:'SDA',3:'SCL',14:'TXD',15:'RXD',10:'MOSI',9:'MISO',11:'SCLK',8:'CE0',7:'CE1',18:'PWM0',12:'PWM0',13:'PWM1',19:'PCM FS',0:'ID_SD',1:'ID_SC'};
+var HOSTS={
+  zero2:{title:'Pi Zero 2',pi:true,short:'Zero 2',specs:['Quad-core Cortex-A53, 1 GHz, 512 MB RAM','40-pin header, 3.3 V logic','SPI, I2C, UART, PWM, camera (CSI)','Wi-Fi 2.4 GHz, Bluetooth 4.2','micro-USB OTG, mini-HDMI']},
+  pi5:{title:'Pi 5',pi:true,short:'Pi 5',specs:['Quad-core Cortex-A76, 2.4 GHz, 4 to 16 GB RAM','40-pin header, 3.3 V logic','SPI, I2C, UART, PWM','Header GPIO goes through gpiod / lgpio (classic RPi.GPIO does not work)','PCIe, Wi-Fi 5, Bluetooth 5']},
+  esp:{title:'ESP32-S3 round LCD',pi:false,short:'ESP32-S3',specs:['Dual-core ESP32-S3, Wi-Fi, Bluetooth 5 LE','1.28 in round touch LCD','6-axis motion sensor','Firmware: Arduino, ESP-IDF or MicroPython','Add-ons wire to free GPIO (no HAT header)']}
+};
+var CATS=[{id:'disp',name:'Displays',blurb:'Show text, images or live data'},{id:'cam',name:'Cameras',blurb:'Capture photos and video'},{id:'sens',name:'Sensors',blurb:'Measure the world around the board'},{id:'power',name:'Power',blurb:'Battery and portable power'}];
+var IFACE_CMD={I2C:['sudo raspi-config nonint do_i2c 0'],SPI:['sudo raspi-config nonint do_spi 0'],UART:['sudo raspi-config nonint do_serial_hw 0','sudo raspi-config nonint do_serial_cons 1']};
+var CAP={zero2:{mipi:1},pi5:{mipi:2},esp:{}};
+var COMMON_CAM_LIBS=[
+  {id:'rpicam',name:'rpicam-apps',what:'Command-line capture: rpicam-hello, rpicam-still, rpicam-vid, rpicam-jpeg, rpicam-raw',lang:'Shell',pm:'bundled',note:'Preinstalled on Raspberry Pi OS',ok:1,def:1},
+  {id:'p2',name:'Picamera2',what:'Control the camera from Python',lang:'Python',pm:'apt',pkg:'python3-picamera2',note:'Preinstalled on most images, but not on Lite',ok:1,def:1},
+  {id:'cv',name:'OpenCV',what:'Image processing and detection from Python',lang:'Python',pm:'apt',pkg:'python3-opencv',ok:0,def:0}];
+var ZERO_CABLE={t:'Needs a Zero camera cable. The cable in the box does not fit the Zero camera port',ok:1,host:['zero2']};
+var CAM_AUTO={t:'No interface switch needed. Official cameras are auto-detected on current Raspberry Pi OS',ok:1,host:['zero2','pi5']};
+var LIB_PIL={id:'pil',name:'Pillow',what:'Draw text and shapes into an image',lang:'Python',pm:'apt',pkg:'python3-pil',ok:1,def:1};
+var LIB_FONT={id:'font',name:'DejaVu fonts',what:'Fonts used by the generated scripts',lang:'System',pm:'apt',pkg:'fonts-dejavu-core',ok:0,def:1};
+var ADDONS={
+  eink:{title:'E-ink 2.13 V4',short:'E-ink',cat:'disp',desc:'250 x 122 black and white e-paper HAT. The image stays with no power.',ifaces:['SPI'],hosts:['zero2','pi5','esp'],why:{},layout:{w:250,h:122,mono:true},
+    claims:[{g:8,r:'CS'},{g:10,r:'MOSI',sh:1},{g:11,r:'SCLK',sh:1},{g:25,r:'DC'},{g:17,r:'RST'},{g:24,r:'BUSY'}],
+    needs:[{t:'Enable SPI',ok:1,host:['zero2','pi5']},{t:'Uses SPI chip-select 0 plus GPIO 17, 24 and 25 on the header',ok:1,host:['zero2','pi5']},{t:'On the ESP32-S3 you wire it to free GPIO instead of stacking it',ok:0,host:['esp']},{t:'A refresh takes about 2 seconds. Waveshare lists one figure and calls it experimental',ok:1}],
+    libs:[{id:'wsepd',name:'Waveshare e-Paper demo library',what:'Python driver (epd2in13_V4) with example scripts',lang:'Python',pm:'git',pkg:'https://github.com/waveshare/e-Paper.git',ok:1,def:1},
+      LIB_PIL,
+      {id:'numpy',name:'NumPy',what:'Required by the Waveshare examples',lang:'Python',pm:'apt',pkg:'python3-numpy',ok:1,def:1},
+      {id:'spidev',name:'spidev',what:'SPI access from Python',lang:'Python',pm:'apt',pkg:'python3-spidev',ok:0,def:1},
+      {id:'gpiozero',name:'gpiozero',what:'GPIO access, optional in the Waveshare guide',lang:'Python',pm:'apt',pkg:'python3-gpiozero',ok:1,def:1}],
+    recipes:['Status board','Show the last photo','Name badge','Low-power sensor readout'],
+    recs:[{part:'p_bme280',why:'Readings stay on the panel between updates'},{part:'ps',why:'E-ink only uses power when it refreshes, which stretches battery life'}]},
+  lcd:{title:'LCD 1.44 HAT',short:'LCD',cat:'disp',desc:'128 x 128 color LCD HAT (ST7735S) with a joystick and three keys.',ifaces:['SPI'],hosts:['zero2','pi5'],why:{esp:'Needs a Pi 40-pin header'},layout:{w:128,h:128,mono:false},
+    claims:[{g:8,r:'CS'},{g:10,r:'MOSI',sh:1},{g:11,r:'SCLK',sh:1},{g:25,r:'DC'},{g:27,r:'RST'},{g:24,r:'BL'},{g:6,r:'Up'},{g:19,r:'Down'},{g:5,r:'Left'},{g:26,r:'Right'},{g:13,r:'Press'},{g:21,r:'Key1'},{g:20,r:'Key2'},{g:16,r:'Key3'}],
+    needs:[{t:'Enable SPI',ok:1},{t:'Joystick and keys use GPIO 5, 6, 13, 16, 19, 20, 21 and 26',ok:1},{t:'The backlight uses GPIO 24, the same pin the e-ink HAT uses for BUSY',ok:1},{t:'On Bookworm the Waveshare demo runs directly. No library install',ok:1}],
+    libs:[{id:'wslcd',name:'Waveshare 1.44inch LCD HAT demo',what:'Demo code and the LCD driver module',lang:'Python',pm:'manual',lines:['sudo apt install -y p7zip-full','wget https://files.waveshare.com/upload/f/fa/1.44inch-LCD-HAT-Code.7z','7z x 1.44inch-LCD-HAT-Code.7z'],ok:1,def:1},
+      LIB_PIL,
+      {id:'numpy',name:'NumPy',what:'Required by the Waveshare demo',lang:'Python',pm:'apt',pkg:'python3-numpy',ok:1,def:1},
+      {id:'spidev',name:'spidev',what:'SPI access from Python',lang:'Python',pm:'apt',pkg:'python3-spidev',ok:0,def:1},
+      LIB_FONT,
+      {id:'lumalcd',name:'luma.lcd',what:'Alternative driver. Supports the ST7735 family',lang:'Python',pm:'pip',pkg:'luma.lcd',ok:1,def:0},
+      {id:'rgb',name:'Adafruit RGB Display',what:'Alternative driver. Supports ST7735 and ST7735S',lang:'Python',pm:'pip',pkg:'adafruit-circuitpython-rgb-display',blinka:1,ok:1,def:0}],
+    recipes:['Menu with the joystick','Live camera preview','Status screen'],
+    recs:[{part:'p_cam3',why:'Fast enough to preview what the camera sees'}]},
+  ps:{title:'PiSugar 3',short:'PiSugar',cat:'power',desc:'Battery board that mounts under a Pi Zero. Reports battery level.',ifaces:['I2C'],hosts:['zero2'],why:{pi5:'PiSugar 3 fits the Pi Zero footprint only',esp:'Pi Zero footprint only'},
+    claims:[{g:2,r:'SDA',sh:1},{g:3,r:'SCL',sh:1}],
+    needs:[{t:'Battery level is available over a local socket: send "get battery", the reply looks like "battery: 87"',ok:1},{t:'Mounts under a Pi Zero with pogo pins',ok:0},{t:'Talks to the Pi over I2C',ok:0}],
+    libs:[{id:'pspm',name:'PiSugar power manager',what:'Battery service. Socket on port 8423 and a web page on 8421',lang:'Service',pm:'manual',lines:['wget -O pisugar-power-manager.sh https://cdn.pisugar.com/release/pisugar-power-manager.sh','bash pisugar-power-manager.sh -c release'],ok:1,def:1}],
+    recipes:['Battery gauge on a display','Safe shutdown at low battery'],
+    recs:[{part:'eink',why:'E-ink only uses power when it refreshes'}]}
+};
+function claimsOf(n){
+  var A=ADDONS[n.type];if(!n.props||!n.props.pins)return A.claims;
+  return A.claims.map(function(c){var g=n.props.pins[c.r];return{g:g!=null?g:c.g,r:c.r,sh:c.sh,flex:c.flex}});
+}
+function isHost(n){return !!HOSTS[n.type]}
+function isAddon(n){return !!ADDONS[n.type]}
+function mountedOn(hid,except){return P.nodes.filter(function(n){return isAddon(n)&&n.props.mount===hid&&n!==except})}
+function fit(a,hn){
+  var A=ADDONS[a.type],Ho=HOSTS[hn.type];
+  if(A.hosts.indexOf(hn.type)<0)return{ok:false,msg:A.why[hn.type]||'Does not fit this host'};
+  var others=mountedOn(hn.id,a),cap=CAP[hn.type]||{};
+  if(A.res&&A.res.mipi){
+    var used=0;others.forEach(function(o){var r=ADDONS[o.type].res;if(r&&r.mipi)used+=r.mipi});
+    if(used+A.res.mipi>(cap.mipi||0))return{ok:false,msg:'No free ribbon port. '+Ho.short+' has '+(cap.mipi||0)+' for cameras and displays'};
+  }
+  if(!Ho.pi)return{ok:true,wired:true,msg:'Wired to any free GPIO'};
+  var hard={},soft={},u={},warns=[];
+  others.forEach(function(o){claimsOf(o).forEach(function(c){(u[c.g]=u[c.g]||[]).push({by:o,c:c})})});
+  claimsOf(a).forEach(function(c){(u[c.g]||[]).forEach(function(x){
+    if(x.c.sh&&c.sh)return;
+    var t=ADDONS[x.by.type].title,tgt=(c.flex||x.c.flex)?soft:hard;
+    (tgt[t]=tgt[t]||[]).push(c.r+' (GPIO'+c.g+')');
+  })});
+  if(A.addr)others.forEach(function(o){
+    var B=ADDONS[o.type];if(!B.addr)return;
+    var com=A.addr.filter(function(x){return B.addr.indexOf(x)>=0});
+    if(!com.length)return;
+    if(A.addr.length===1&&B.addr.length===1){(hard['I2C address']=hard['I2C address']||[]).push(com[0]+' is fixed on both '+A.title+' and '+B.title)}
+    else warns.push('Set different I2C addresses on '+A.title+' and '+B.title);
+  });
+  var hk=Object.keys(hard);
+  if(hk.length)return{ok:false,msg:'Conflict with '+hk.map(function(k){return k+': '+hard[k].join(', ')}).join('; ')};
+  Object.keys(soft).forEach(function(k){warns.push('Pins overlap with '+k+': '+soft[k].join(', ')+'. Remap one of them in your script')});
+  if(warns.length)return{ok:true,warn:warns.join('. '),msg:'Fits, but check this: '+warns.join('. ')};
+  return{ok:true,msg:'Fits'};
+}
+function hostOf(n){return n.props.mount&&NM[n.props.mount]&&isHost(NM[n.props.mount])?NM[n.props.mount]:null}
+
+/* ---------- node type helpers ---------- */
+function inp(n,key,o){
+  o=o||{};
+  var e=h('input',{type:o.type||'text',placeholder:o.ph||''});
+  if(o.step)e.step=o.step;
+  if(o.min!=null)e.min=o.min;
+  if(o.max!=null)e.max=o.max;
+  var v=n.props[key];
+  if(o.type==='checkbox')e.checked=!!v;else e.value=v==null?'':v;
+  e.addEventListener('input',function(){
+    var val=o.type==='checkbox'?e.checked:(o.type==='number'||o.type==='range')?(e.value===''?0:parseFloat(e.value)):e.value;
+    n.props[key]=val;if(o.after)o.after(val,e);touch(n);
+  });
+  return e;
+}
+function sel2(n,key,opts){
+  var e=h('select');
+  opts.forEach(function(o){e.appendChild(h('option',{value:o[0],text:o[1]}))});
+  e.value=n.props[key];
+  e.addEventListener('change',function(){n.props[key]=e.value;touch(n)});
+  return e;
+}
+function area(n,key,rows){
+  var e=h('textarea',{rows:rows||4,spellcheck:'false',autocapitalize:'off',autocomplete:'off'});
+  e.value=n.props[key]||'';
+  e.addEventListener('input',function(){n.props[key]=e.value;touch(n)});
+  return e;
+}
+function lab(t){return h('div',{class:'lbl',text:t})}
+
+function def(id,o){TY[id]=o}
+var MATH=[['add','a + b'],['sub','a - b'],['mul','a x b'],['div','a / b'],['min','min'],['max','max'],['pow','a ^ b'],['mod','a mod b']];
+var CMP=[['gt','a > b'],['lt','a < b'],['ge','a >= b'],['le','a <= b'],['eq','a = b'],['ne','a != b']];
+
+def('zero2',{cat:'hw',title:'Pi Zero 2',desc:'Host. Pin map, capabilities, CPU temp.',w:210,ins:[],outs:[{n:'cpu C',t:'num'}],
+  props:function(){return{cpu:42}},
+  ev:function(n){return[Number(n.props.cpu)]},
+  body:hostBody,upd:hostUpd});
+def('pi5',{cat:'hw',title:'Pi 5',desc:'Host. Pin map, capabilities, CPU temp.',w:210,ins:[],outs:[{n:'cpu C',t:'num'}],
+  props:function(){return{cpu:48}},
+  ev:function(n){return[Number(n.props.cpu)]},
+  body:hostBody,upd:hostUpd});
+def('esp',{cat:'hw',title:'ESP32-S3 round LCD',desc:'Host. Touch, tilt, wired add-ons.',w:210,ins:[],outs:[{n:'touch',t:'bool'},{n:'tilt',t:'num'}],
+  props:function(){return{tilt:0}},
+  ev:function(n){return[!!n.rt.touch,Number(n.props.tilt)]},
+  body:function(n,b){
+    hostBody(n,b);
+    var tb=h('button',{class:'btn sm',text:'Hold to simulate touch'});
+    function on(){n.rt.touch=true;refresh()}function off(){n.rt.touch=false;refresh()}
+    tb.addEventListener('pointerdown',on);tb.addEventListener('pointerup',off);tb.addEventListener('pointerleave',off);tb.addEventListener('pointercancel',off);
+    b.appendChild(tb);b.appendChild(lab('Simulated tilt'));
+    b.appendChild(inp(n,'tilt',{type:'range',min:-90,max:90,step:1}));
+  },upd:hostUpd});
+
+function hostBody(n,b){
+  n.rt.list=h('div',{class:'lbl'});
+  b.appendChild(n.rt.list);
+  if(n.type!=='esp'){b.appendChild(lab('Simulated CPU temp'));b.appendChild(inp(n,'cpu',{type:'range',min:30,max:85,step:1}))}
+  b.appendChild(h('div',{class:'flex'},[
+    h('button',{class:'btn sm',text:'Pin map',onclick:function(){openPins(n)}}),
+    h('button',{class:'btn sm',text:'Parts for this host',onclick:function(){openSpecs(n)}})
+  ]));
+}
+function hostUpd(n){
+  var ad=mountedOn(n.id);
+  var T=HOSTS[n.type],txt=ad.length?'Attached: '+ad.map(function(a){return ADDONS[a.type].short}).join(', '):'Nothing attached';
+  if(T.pi){var u={};ad.forEach(function(a){claimsOf(a).forEach(function(c){u[c.g]=1})});txt+=' | GPIO in use: '+Object.keys(u).length+' of 26'}
+  n.rt.list.textContent=txt;
+}
+
+function mountBody(n,b){
+  n.rt.sel=h('select');
+  n.rt.sel.addEventListener('change',function(){
+    var v=n.rt.sel.value;n.props.mount=v===''?null:parseInt(v,10);touch(n);commitNow();drawWires();
+  });
+  b.appendChild(lab('Mounted on'));b.appendChild(n.rt.sel);n.rt.warn=h('div',{class:'lbl msg-bad'});b.appendChild(n.rt.warn);
+}
+function mountUpd(n){
+  var hosts=P.nodes.filter(isHost),opts=[{v:'',t:'Not mounted',d:false}];
+  hosts.forEach(function(hn){
+    var f=fit(n,hn),cur=n.props.mount===hn.id;
+    var t=HOSTS[hn.type].title+' #'+hn.id+(cur?'':f.ok?(f.wired?' (wired)':f.warn?' (fits, check pins)':' (fits)'):' - '+f.msg);
+    opts.push({v:String(hn.id),t:t,d:!f.ok&&!cur});
+  });
+  var sig=JSON.stringify(opts)+'|'+n.props.mount;
+  if(n.rt.sig!==sig){
+    n.rt.sig=sig;n.rt.sel.innerHTML='';
+    opts.forEach(function(o){var op=h('option',{value:o.v,text:o.t});if(o.d)op.disabled=true;n.rt.sel.appendChild(op)});
+    n.rt.sel.value=n.props.mount==null?'':String(n.props.mount);
+  }
+  var hn2=hostOf(n);
+  EL[n.id].sub.textContent=hn2?'on '+HOSTS[hn2.type].short+' #'+hn2.id:'not mounted';
+  if(n.rt.warn){var f2=hn2?fit(n,hn2):null;n.rt.warn.textContent=f2&&(f2.warn||(!f2.ok?f2.msg:''))||''}
+}
+function dspDefaults(type){
+  if(type==='p_ssd1306')return{els:[
+    {t:'text',x:4,y:2,s:20,b:1,v:'my-pi',c:'#ffffff'},
+    {t:'text',x:4,y:34,s:14,b:0,v:'temp {in1} C',c:'#ffffff'},
+    {t:'rect',x:0,y:0,w:128,h:64,f:0,c:'#ffffff'}],invert:true,bg:'#000000',sel:0};
+  if(type==='eink')return{els:[
+    {t:'text',x:10,y:10,s:30,b:1,v:'my-pi',c:'#000000'},
+    {t:'text',x:10,y:70,s:15,b:0,v:'batt {in1}%',c:'#000000'},
+    {t:'text',x:10,y:92,s:15,b:0,v:'cpu {in2} C',c:'#000000'},
+    {t:'rect',x:0,y:0,w:250,h:122,f:0,c:'#000000'}],invert:false,bg:'#ffffff',sel:0};
+  return{els:[
+    {t:'text',x:8,y:8,s:20,b:1,v:'my-pi',c:'#00d09c'},
+    {t:'text',x:8,y:100,s:12,b:0,v:'batt {in1}%',c:'#ffffff'},
+    {t:'rect',x:0,y:0,w:128,h:128,f:0,c:'#00d09c'}],invert:false,bg:'#101010',sel:0};
+}
+function dispBody(n,b){
+  mountBody(n,b);
+  var L0=dcfg(n);n.rt.cv=h('canvas',{class:'dprev',width:L0.w,height:L0.h,title:'Open layout and scripts'});
+  n.rt.cv.addEventListener('click',function(){openDisplay(n)});
+  b.appendChild(n.rt.cv);
+  n.rt.sum=h('div',{class:'lbl'});
+  b.appendChild(n.rt.sum);
+  b.appendChild(h('div',{class:'flex'},[h('button',{class:'btn sm',text:'Layout and scripts',onclick:function(){openDisplay(n)}}),h('button',{class:'btn sm',text:'Part page',onclick:function(){openPart(n.type,n)}})]));
+}
+function dispUpd(n){
+  mountUpd(n);
+  var L=dcfg(n),c=L.w+' x '+L.h;
+  n.rt.sum.textContent=c+' | '+n.props.dsp.els.length+' elements';
+  var cx=n.rt.cv&&n.rt.cv.getContext&&n.rt.cv.getContext('2d');if(cx)paintDisplay(cx,n,[],null);
+}
+def('eink',{sink:true,cat:'hw',title:'E-ink 2.13 V4',desc:'Add-on. Layout canvas, scripts, panel notes.',w:220,
+  ins:[{n:'in1',t:'any',d:'87'},{n:'in2',t:'any',d:'42'},{n:'in3',t:'any',d:''}],outs:[{n:'width',t:'num'},{n:'height',t:'num'}],
+  props:function(){return{mount:null,def:{},dsp:dspDefaults('eink')}},
+  ev:function(){return[250,122]},body:dispBody,upd:dispUpd});
+def('lcd',{sink:true,cat:'hw',title:'LCD 1.44 HAT',desc:'Add-on. Color layout, joystick and keys.',w:220,
+  ins:[{n:'in1',t:'any',d:'87'},{n:'in2',t:'any',d:''},{n:'in3',t:'any',d:''}],
+  outs:[{n:'up',t:'bool'},{n:'down',t:'bool'},{n:'left',t:'bool'},{n:'right',t:'bool'},{n:'press',t:'bool'},{n:'key1',t:'bool'},{n:'key2',t:'bool'},{n:'key3',t:'bool'}],
+  props:function(){return{mount:null,def:{},dsp:dspDefaults('lcd')}},
+  ev:function(n){var k=n.rt.k||{};return['up','down','left','right','press','key1','key2','key3'].map(function(x){return !!k[x]})},
+  body:function(n,b){
+    dispBody(n,b);
+    b.appendChild(lab('Hold to simulate'));
+    var g=h('div',{class:'two'});
+    ['up','down','left','right','press','key1','key2','key3'].forEach(function(k){
+      var bt=h('button',{class:'btn sm',text:k});
+      function on(){n.rt.k=n.rt.k||{};n.rt.k[k]=true;refresh()}function off(){if(n.rt.k&&n.rt.k[k]){n.rt.k[k]=false;refresh()}}
+      bt.addEventListener('pointerdown',on);bt.addEventListener('pointerup',off);bt.addEventListener('pointerleave',off);bt.addEventListener('pointercancel',off);
+      g.appendChild(bt);
+    });
+    b.appendChild(g);
+  },upd:dispUpd});
+def('ps',{cat:'hw',title:'PiSugar 3',desc:'Add-on. Battery level and charging.',w:210,ins:[],outs:[{n:'battery',t:'num'},{n:'charging',t:'bool'}],
+  props:function(){return{mount:null,bat:87,chg:false}},
+  ev:function(n){return[Number(n.props.bat),!!n.props.chg]},
+  body:function(n,b){
+    mountBody(n,b);b.appendChild(lab('Simulated battery %'));
+    b.appendChild(inp(n,'bat',{type:'range',min:0,max:100,step:1}));
+    b.appendChild(h('label',{class:'lbl'},[inp(n,'chg',{type:'checkbox'}),' Charging']));
+    b.appendChild(h('button',{class:'btn sm',text:'Part page',onclick:function(){openPart(n.type,n)}}));
+  },upd:mountUpd});
+
+def('slider',{cat:'in',title:'Slider',desc:'Number out with min, max and step.',w:200,ins:[],outs:[{n:'value',t:'num'}],
+  props:function(){return{label:'value',min:0,max:100,step:1,value:50}},
+  ev:function(n){return[Number(n.props.value)]},
+  body:function(n,b){
+    var r=inp(n,'value',{type:'range',min:n.props.min,max:n.props.max,step:n.props.step});
+    function re(){r.min=n.props.min;r.max=n.props.max;r.step=n.props.step}
+    var t=inp(n,'label',{ph:'name',after:function(){EL[n.id].sub.textContent=n.props.label}});
+    b.appendChild(t);b.appendChild(r);
+    var g=h('div',{class:'two'},[inp(n,'min',{type:'number',step:'any',after:re}),inp(n,'max',{type:'number',step:'any',after:re}),inp(n,'step',{type:'number',step:'any',after:re})]);
+    b.appendChild(g);b.appendChild(lab('min / max / step'));
+  },upd:function(n){EL[n.id].sub.textContent=n.props.label}});
+def('toggle',{cat:'in',title:'Toggle',desc:'True or false out.',w:170,ins:[],outs:[{n:'on',t:'bool'}],
+  props:function(){return{v:false}},ev:function(n){return[!!n.props.v]},
+  body:function(n,b){b.appendChild(h('label',{class:'lbl'},[inp(n,'v',{type:'checkbox'}),' On']))}});
+def('text',{cat:'in',title:'Text',desc:'A string out.',w:190,ins:[],outs:[{n:'text',t:'text'}],
+  props:function(){return{v:'hello'}},ev:function(n){return[String(n.props.v)]},
+  body:function(n,b){b.appendChild(inp(n,'v',{}))}});
+def('timer',{cat:'in',title:'Timer',desc:'Counts up every period.',w:170,ins:[],outs:[{n:'count',t:'num'}],
+  props:function(){return{period:1,run:true}},
+  ev:function(n){
+    if(!n.props.run)return[n.rt.fz||0];
+    if(!n.rt.t0)n.rt.t0=performance.now();
+    var c=Math.floor((performance.now()-n.rt.t0)/(Math.max(0.05,Number(n.props.period)||1)*1000));n.rt.fz=c;return[c];
+  },
+  body:function(n,b){
+    b.appendChild(lab('Period (seconds)'));b.appendChild(inp(n,'period',{type:'number',step:'any'}));
+    b.appendChild(h('label',{class:'lbl'},[inp(n,'run',{type:'checkbox'}),' Running']));
+  }});
+
+def('math',{cat:'logic',title:'Math',desc:'Two numbers in, one out.',w:190,
+  ins:[{n:'a',t:'num',d:0},{n:'b',t:'num',d:0}],outs:[{n:'out',t:'num'}],
+  props:function(){return{op:'add',def:{}}},
+  ev:function(n,i){
+    var a=+i[0],b=+i[1],r;
+    switch(n.props.op){case'add':r=a+b;break;case'sub':r=a-b;break;case'mul':r=a*b;break;case'div':r=b===0?0:a/b;break;
+      case'min':r=Math.min(a,b);break;case'max':r=Math.max(a,b);break;case'pow':r=Math.pow(a,b);break;default:r=b===0?0:a%b}
+    return[r];
+  },body:function(n,b){b.appendChild(sel2(n,'op',MATH))}});
+def('compare',{cat:'logic',title:'Compare',desc:'True when the test passes.',w:190,
+  ins:[{n:'a',t:'num',d:0},{n:'b',t:'num',d:0}],outs:[{n:'out',t:'bool'}],
+  props:function(){return{op:'gt',def:{}}},
+  ev:function(n,i){
+    var a=+i[0],b=+i[1];
+    return[{gt:a>b,lt:a<b,ge:a>=b,le:a<=b,eq:a===b,ne:a!==b}[n.props.op]];
+  },body:function(n,b){b.appendChild(sel2(n,'op',CMP))}});
+def('select',{cat:'logic',title:'Select',desc:'If true pick a, else pick b.',w:190,
+  ins:[{n:'if',t:'bool',d:false},{n:'a',t:'any',d:''},{n:'b',t:'any',d:''}],outs:[{n:'out',t:'any'}],
+  props:function(){return{def:{}}},ev:function(n,i){return[i[0]?i[1]:i[2]]},body:function(){}});
+def('code',{cat:'logic',title:'Code',desc:'Your own JavaScript. Inputs a, b, c.',w:230,
+  ins:[{n:'a',t:'any',d:0},{n:'b',t:'any',d:0},{n:'c',t:'any',d:0}],outs:[{n:'out',t:'any'}],
+  props:function(){return{body:'return a + b',def:{}}},
+  ev:function(n,i){
+    var s=n.props.body;
+    if(n.rt.src!==s){n.rt.src=s;n.rt.fn=null;try{n.rt.fn=new Function('a','b','c',s)}catch(e){n.rt.ferr=e.message}}
+    if(!n.rt.fn)throw new Error(n.rt.ferr||'Bad code');
+    return[n.rt.fn(i[0],i[1],i[2])];
+  },body:function(n,b){b.appendChild(area(n,'body',4))}});
+
+def('readout',{cat:'view',title:'Readout',desc:'Shows any value.',w:190,ins:[{n:'in',t:'any',d:''}],outs:[],
+  props:function(){return{def:{}}},ev:function(){return[]},
+  body:function(n,b){n.rt.big=h('div',{class:'big'});b.appendChild(n.rt.big)},
+  upd:function(n,el,ev){n.rt.big.textContent=fmt(ev.ins[0])}});
+var PAD_BODY=['var pts = [];','for (var i = 0; i < a; i++) {','  var t = -Math.PI / 2 + i * 2 * Math.PI / a + c * Math.PI / 180;','  pts.push((b * Math.cos(t)).toFixed(1) + "," + (b * Math.sin(t)).toFixed(1));','}','return \'<polygon points="\' + pts.join(" ") + \'" fill="none" stroke="currentColor" stroke-width="2"/>\';'].join('\n');
+def('svgpad',{cat:'view',title:'SVG pad',desc:'Draws SVG from inputs a, b, c.',w:230,
+  ins:[{n:'a',t:'num',d:6},{n:'b',t:'num',d:40},{n:'c',t:'num',d:0}],outs:[{n:'svg',t:'text'}],
+  props:function(){return{body:PAD_BODY,def:{}}},
+  ev:function(n,i){
+    var s=n.props.body;
+    if(n.rt.src!==s){n.rt.src=s;n.rt.fn=null;try{n.rt.fn=new Function('a','b','c',s)}catch(e){n.rt.ferr=e.message}}
+    if(!n.rt.fn)throw new Error(n.rt.ferr||'Bad code');
+    return[String(n.rt.fn(+i[0],+i[1],+i[2]))];
+  },
+  body:function(n,b){
+    n.rt.svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    n.rt.svg.setAttribute('viewBox','-60 -60 120 120');n.rt.svg.setAttribute('width','100%');n.rt.svg.style.height='130px';n.rt.svg.style.color='var(--text)';
+    n.rt.svg.style.background='var(--bg)';n.rt.svg.style.borderRadius='6px';
+    b.appendChild(n.rt.svg);b.appendChild(area(n,'body',6));
+  },
+  upd:function(n,el,ev){
+    while(n.rt.svg.firstChild)n.rt.svg.removeChild(n.rt.svg.firstChild);
+    if(ev.err||ev.outs[0]==null)return;
+    try{n.rt.svg.appendChild(cleanSvg(ev.outs[0]))}catch(e){el.err.textContent=e.message}
+  }});
+def('parts',{cat:'view',title:'Parts list',desc:'Cost and current totals.',w:230,ins:[],outs:[{n:'cost',t:'num'},{n:'mA',t:'num'}],
+  props:function(){return{lines:'ESP32-S3 board, 1, 14, 120\nE-ink 2.13, 1, 18, 10\nPiSugar 3, 1, 30, 0',budget:500}},
+  ev:function(n){
+    var c=0,m=0;
+    String(n.props.lines).split('\n').forEach(function(l){var p=l.split(',');if(p.length<2)return;var q=parseFloat(p[1])||0;c+=q*(parseFloat(p[2])||0);m+=q*(parseFloat(p[3])||0)});
+    return[Math.round(c*100)/100,Math.round(m*10)/10];
+  },
+  body:function(n,b){
+    b.appendChild(lab('name, qty, unit cost, mA'));b.appendChild(area(n,'lines',5));
+    b.appendChild(lab('Current budget (mA)'));b.appendChild(inp(n,'budget',{type:'number',step:'any'}));
+    n.rt.tot=h('div',{class:'lbl'});b.appendChild(n.rt.tot);
+  },
+  upd:function(n,el,ev){
+    var over=ev.outs[1]>Number(n.props.budget);
+    n.rt.tot.textContent='Total '+fmt(ev.outs[0])+' | '+fmt(ev.outs[1])+' mA'+(over?' | over budget':' | within budget');
+    n.rt.tot.className=over?'lbl msg-bad':'lbl msg-ok';
+  }});
+def('note',{cat:'view',title:'Note',desc:'Free text.',w:210,ins:[],outs:[],props:function(){return{v:''}},ev:function(){return[]},
+  body:function(n,b){b.appendChild(area(n,'v',4))}});
+
+/* ---------- parts catalog data ---------- */
+function adaLib(id,name,what,pkg,def){return {id:id,name:name,what:what,lang:'Python',pm:'pip',pkg:pkg,blinka:1,ok:0,def:def==null?1:def}}
+var PARTS=[
+ {id:'p_ssd1306',title:'SSD1306 OLED',short:'OLED',cat:'disp',desc:'128 x 64 (or 128 x 32) monochrome OLED over I2C. Sharp, self-lit, tiny.',ifaces:['I2C'],hosts:['zero2','pi5','esp'],why:{},
+  claims:[{g:2,r:'SDA',sh:1},{g:3,r:'SCL',sh:1}],addr:['0x3C','0x3D'],layout:{w:128,h:64,mono:true},
+  variants:[{name:'0.96 in, 128 x 64',note:'The common one. The layout canvas is sized for this.'},{name:'0.91 in, 128 x 32',note:'Half the height. Keep elements in the top 32 rows.'}],
+  ins:[{n:'in1',t:'any',d:'42'},{n:'in2',t:'any',d:''},{n:'in3',t:'any',d:''}],outs:[],
+  needs:[{t:'Enable I2C',ok:0,host:['zero2','pi5']},{t:'Address is usually 0x3C, some modules use 0x3D',ok:0},{t:'On the ESP32-S3 wire SDA and SCL to any two free GPIO',ok:0,host:['esp']}],
+  libs:[{id:'luma',name:'luma.oled',what:'Driver and drawing helpers. Used by the generated scripts',lang:'Python',pm:'pip',pkg:'luma.oled',ok:0,def:1},LIB_PIL,LIB_FONT,
+    adaLib('adassd','Adafruit SSD1306','CircuitPython driver. Alternative to luma.oled','adafruit-circuitpython-ssd1306',0),
+    {id:'i2ctools',name:'i2c-tools',what:'i2cdetect shows the address the module answers on',lang:'Shell',pm:'apt',pkg:'i2c-tools',ok:0,def:1}],
+  recipes:['Live sensor readout','Clock and status line','Tiny menu with two buttons'],
+  recs:[{part:'p_bme280',why:'Readings fit one OLED screen'},{part:'ps',why:'OLED draws little power'}]},
+ {id:'p_st7789',title:'ST7789 color LCD',short:'ST7789',cat:'disp',desc:'1.3 to 2.0 in color IPS LCD over SPI, 240 x 240 or 240 x 320.',ifaces:['SPI'],hosts:['zero2','pi5','esp'],why:{},
+  claims:[{g:7,r:'CS',flex:1},{g:10,r:'MOSI',sh:1},{g:11,r:'SCLK',sh:1},{g:25,r:'DC',flex:1},{g:27,r:'RST',flex:1},{g:24,r:'BL',flex:1}],
+  variants:[{name:'1.3 in, 240 x 240',note:'Square. Common breakout size.'},{name:'2.0 in, 240 x 320',note:'Larger and wider.'}],
+  needs:[{t:'Enable SPI',ok:0,host:['zero2','pi5']},{t:'Control pins vary by breakout. Check the silkscreen on yours',ok:0}],
+  libs:[{id:'luma',name:'luma.lcd',what:'Driver for ST7789 and related panels',lang:'Python',pm:'pip',pkg:'luma.lcd',ok:0,def:1},LIB_PIL,
+    adaLib('adast','Adafruit RGB Display','Driver with ST7789 support and PIL drawing','adafruit-circuitpython-rgb-display'),
+    {id:'st7789py',name:'st7789 (Pimoroni)',what:'Small standalone ST7789 driver',lang:'Python',pm:'pip',pkg:'st7789',ok:0,def:0},LIB_FONT],
+  recipes:['Photo frame','Camera preview','Dashboard'],recs:[{part:'p_cam3',why:'Color screen is good for a preview'}]},
+ {id:'p_ili9341',title:'ILI9341 TFT',short:'ILI9341',cat:'disp',desc:'2.4 to 2.8 in color TFT, 240 x 320, often with a resistive touch layer.',ifaces:['SPI'],hosts:['zero2','pi5','esp'],why:{},
+  claims:[{g:7,r:'CS',flex:1},{g:10,r:'MOSI',sh:1},{g:11,r:'SCLK',sh:1},{g:9,r:'MISO',sh:1},{g:25,r:'DC',flex:1},{g:27,r:'RST',flex:1}],
+  needs:[{t:'Enable SPI',ok:0,host:['zero2','pi5']},{t:'Touch versions use a second chip-select',ok:0}],
+  libs:[{id:'luma',name:'luma.lcd',what:'Driver with ILI9341 support',lang:'Python',pm:'pip',pkg:'luma.lcd',ok:0,def:1},LIB_PIL,
+    adaLib('adaili','Adafruit RGB Display','Driver with ILI9341 support','adafruit-circuitpython-rgb-display'),
+    {id:'pygame',name:'pygame',what:'Game and UI toolkit, if you draw to a framebuffer',lang:'Python',pm:'apt',pkg:'python3-pygame',ok:0,def:0}],
+  recipes:['Small touch UI','Chart display'],recs:[]},
+ {id:'p_inky',title:'Inky e-paper',short:'Inky',cat:'disp',desc:'Pimoroni Inky pHAT or wHAT. Black, white and red or yellow e-paper.',ifaces:['SPI'],hosts:['zero2','pi5'],why:{esp:'Needs a Pi 40-pin header'},
+  claims:[{g:8,r:'CS'},{g:10,r:'MOSI',sh:1},{g:11,r:'SCLK',sh:1},{g:22,r:'DC'},{g:27,r:'RST'},{g:17,r:'BUSY'}],
+  variants:[{name:'pHAT 212 x 104',note:'Fits a Pi Zero footprint.'},{name:'wHAT 400 x 300',note:'Larger panel.'}],
+  needs:[{t:'Enable SPI',ok:0},{t:'Pimoroni says it also uses I2C to identify the panel',ok:0}],
+  libs:[{id:'inky',name:'Inky',what:'Pimoroni library. Detects the panel and draws with PIL',lang:'Python',pm:'pip',pkg:'inky[rpi,example-depends]',ok:0,def:1},LIB_PIL,LIB_FONT],
+  recipes:['Calendar','Weather card','Badge'],recs:[]},
+ {id:'p_touch2',title:'Touch Display 2',short:'Touch 2',cat:'disp',desc:'Official 7 in touchscreen on the display ribbon port.',ifaces:['DSI'],hosts:['pi5'],why:{zero2:'The Touch Display 2 does not work with the Pi Zero',esp:'Needs a Pi display ribbon port'},res:{mipi:1},claims:[],
+  needs:[{t:'Connects with a display ribbon, no GPIO used',ok:1},{t:'Not compatible with the Pi Zero family',ok:1}],
+  libs:[{id:'kms',name:'KMS display driver',what:'Built in. Works as a normal screen',lang:'System',pm:'bundled',ok:0,def:1},
+    {id:'pygame',name:'pygame',what:'Touch-friendly UI toolkit',lang:'Python',pm:'apt',pkg:'python3-pygame',ok:0,def:0},
+    {id:'tk',name:'Tkinter',what:'Standard Python UI toolkit',lang:'Python',pm:'apt',pkg:'python3-tk',ok:0,def:0}],
+  recipes:['Touch control panel','Kiosk dashboard'],recs:[{part:'p_cam3',why:'Camera preview on a big screen'}]},
+ {id:'p_cam3',title:'Camera Module 3',short:'Cam 3',cat:'cam',desc:'12 MP camera with autofocus on the camera ribbon port.',ifaces:['CSI'],hosts:['zero2','pi5'],why:{esp:'Needs a Pi camera port'},res:{mipi:1},claims:[],
+  variants:[{name:'Standard',note:'Normal lens.'},{name:'Wide',note:'Wider field of view.'},{name:'NoIR',note:'No infrared filter. Good with IR lighting.'}],
+  needs:[ZERO_CABLE,CAM_AUTO],libs:COMMON_CAM_LIBS,
+  recipes:['Time-lapse','Photo booth','Motion snapshot'],
+  recs:[{part:'p_ssd1306',why:'Show status while the camera runs'},{part:'lcd',why:'Preview what the camera sees'},{part:'p_st7789',why:'Larger color preview'},{part:'eink',why:'Show the last photo, low power'}]},
+ {id:'p_cam2',title:'Camera Module 2',short:'Cam 2',cat:'cam',desc:'8 MP camera, fixed focus.',ifaces:['CSI'],hosts:['zero2','pi5'],why:{esp:'Needs a Pi camera port'},res:{mipi:1},claims:[],
+  needs:[ZERO_CABLE,CAM_AUTO],libs:COMMON_CAM_LIBS,recipes:['Time-lapse','Streaming'],
+  recs:[{part:'p_ssd1306',why:'Status screen'},{part:'lcd',why:'Preview screen'}]},
+ {id:'p_hq',title:'HQ Camera',short:'HQ Cam',cat:'cam',desc:'12 MP sensor that takes interchangeable C or CS lenses.',ifaces:['CSI'],hosts:['zero2','pi5'],why:{esp:'Needs a Pi camera port'},res:{mipi:1},claims:[],
+  needs:[ZERO_CABLE,CAM_AUTO,{t:'The lens is sold separately',ok:0}],libs:COMMON_CAM_LIBS,recipes:['Astro photos','Macro shots'],
+  recs:[{part:'p_st7789',why:'Preview screen'}]},
+ {id:'p_usbcam',title:'USB webcam',short:'USB cam',cat:'cam',desc:'Any UVC webcam. Needs no ribbon port.',ifaces:['USB'],hosts:['zero2','pi5'],why:{esp:'ESP32-S3 has no USB host here'},claims:[],
+  needs:[{t:'A Pi Zero needs a micro-USB OTG adapter',ok:0,host:['zero2']}],
+  libs:[{id:'fsw',name:'fswebcam',what:'Take a picture from the command line',lang:'Shell',pm:'apt',pkg:'fswebcam',ok:0,def:1},
+    {id:'v4l',name:'v4l-utils',what:'List and configure camera formats',lang:'Shell',pm:'apt',pkg:'v4l-utils',ok:0,def:1},
+    {id:'cv',name:'OpenCV',what:'Capture frames from Python',lang:'Python',pm:'apt',pkg:'python3-opencv',ok:0,def:0}],
+  recipes:['Snapshot on a timer','Face detection'],recs:[{part:'p_ssd1306',why:'Status screen'}]},
+ {id:'p_bme280',title:'BME280',short:'BME280',cat:'sens',desc:'Temperature, humidity and pressure over I2C.',ifaces:['I2C'],hosts:['zero2','pi5','esp'],why:{},
+  claims:[{g:2,r:'SDA',sh:1},{g:3,r:'SCL',sh:1}],addr:['0x76','0x77'],
+  outs:[{n:'temp C',t:'num',min:-20,max:50,step:.1,v:21},{n:'humidity %',t:'num',min:0,max:100,step:1,v:45},{n:'pressure hPa',t:'num',min:950,max:1050,step:1,v:1013}],
+  needs:[{t:'Enable I2C',ok:0,host:['zero2','pi5']},{t:'Address 0x76 or 0x77, set by a solder pad',ok:0}],
+  libs:[adaLib('adabme','Adafruit BME280','CircuitPython driver','adafruit-circuitpython-bme280'),
+    {id:'rpibme',name:'RPi.bme280',what:'Small driver on top of smbus2',lang:'Python',pm:'pip',pkg:'RPi.bme280',ok:0,def:0},
+    {id:'smbus2',name:'smbus2',what:'Raw I2C access from Python',lang:'Python',pm:'pip',pkg:'smbus2',ok:0,def:0},
+    {id:'i2ctools',name:'i2c-tools',what:'i2cdetect shows the address',lang:'Shell',pm:'apt',pkg:'i2c-tools',ok:0,def:1}],
+  recipes:['Weather station','Greenhouse log'],recs:[{part:'eink',why:'Readings stay on the panel'},{part:'p_ssd1306',why:'Live readout'}]},
+ {id:'p_mpu6050',title:'MPU-6050',short:'MPU6050',cat:'sens',desc:'6-axis accelerometer and gyroscope over I2C.',ifaces:['I2C'],hosts:['zero2','pi5','esp'],why:{},
+  claims:[{g:2,r:'SDA',sh:1},{g:3,r:'SCL',sh:1}],addr:['0x68','0x69'],
+  outs:[{n:'accel x',t:'num',min:-20,max:20,step:.1,v:0},{n:'accel y',t:'num',min:-20,max:20,step:.1,v:0},{n:'accel z',t:'num',min:-20,max:20,step:.1,v:9.8},{n:'temp C',t:'num',min:-20,max:60,step:.1,v:25}],
+  needs:[{t:'Enable I2C',ok:0,host:['zero2','pi5']},{t:'Address 0x68, or 0x69 with AD0 tied high',ok:0}],
+  libs:[adaLib('adampu','Adafruit MPU6050','CircuitPython driver','adafruit-circuitpython-mpu6050'),
+    {id:'mpupi',name:'mpu6050-raspberrypi',what:'Simple standalone driver',lang:'Python',pm:'pip',pkg:'mpu6050-raspberrypi',ok:0,def:0}],
+  recipes:['Tilt detector','Shake to wake'],recs:[{part:'p_ssd1306',why:'Show tilt live'}]},
+ {id:'p_vl53l0x',title:'VL53L0X distance',short:'VL53L0X',cat:'sens',desc:'Laser time-of-flight distance sensor over I2C, up to about 1 m.',ifaces:['I2C'],hosts:['zero2','pi5','esp'],why:{},
+  claims:[{g:2,r:'SDA',sh:1},{g:3,r:'SCL',sh:1}],addr:['0x29'],
+  outs:[{n:'distance mm',t:'num',min:0,max:1200,step:1,v:300}],
+  needs:[{t:'Enable I2C',ok:0,host:['zero2','pi5']},{t:'Address 0x29 unless you move it with the XSHUT pin',ok:0}],
+  libs:[adaLib('adavl','Adafruit VL53L0X','CircuitPython driver','adafruit-circuitpython-vl53l0x')],
+  recipes:['Parking helper','Presence check'],recs:[{part:'p_ssd1306',why:'Show distance live'}]},
+ {id:'p_ads1115',title:'ADS1115 ADC',short:'ADS1115',cat:'sens',desc:'4-channel 16-bit analog input over I2C. Reads sensors the Pi cannot read directly.',ifaces:['I2C'],hosts:['zero2','pi5','esp'],why:{},
+  claims:[{g:2,r:'SDA',sh:1},{g:3,r:'SCL',sh:1}],addr:['0x48','0x49','0x4A','0x4B'],
+  outs:[{n:'ch0 V',t:'num',min:0,max:3.3,step:.01,v:1.2},{n:'ch1 V',t:'num',min:0,max:3.3,step:.01,v:0}],
+  needs:[{t:'Enable I2C',ok:0,host:['zero2','pi5']},{t:'Address set by the ADDR pin',ok:0}],
+  libs:[adaLib('adaads','Adafruit ADS1x15','CircuitPython driver','adafruit-circuitpython-ads1x15')],
+  recipes:['Soil moisture','Battery voltage'],recs:[]},
+ {id:'p_dht22',title:'DHT22',short:'DHT22',cat:'sens',desc:'Temperature and humidity on one data wire.',ifaces:['GPIO'],hosts:['zero2','pi5'],why:{esp:'Use an ESP32 library instead'},
+  claims:[{g:4,r:'DATA',flex:1}],
+  outs:[{n:'temp C',t:'num',min:-20,max:50,step:.1,v:22},{n:'humidity %',t:'num',min:0,max:100,step:1,v:50}],
+  needs:[{t:'A pull-up resistor on DATA is needed unless the board has one',ok:0},{t:'Reads fail now and then. Retry the read',ok:0},{t:'Check Pi Zero and Pi 5 support for the library before relying on it',ok:0}],
+  libs:[adaLib('adadht','Adafruit DHT','CircuitPython driver','adafruit-circuitpython-dht'),
+    {id:'gpiod',name:'libgpiod',what:'Required by the Adafruit DHT driver',lang:'System',pm:'apt',pkg:'libgpiod2',ok:0,def:1}],
+  recipes:['Room climate log'],recs:[{part:'eink',why:'Show readings between updates'}]},
+ {id:'p_hcsr04',title:'HC-SR04 ultrasonic',short:'HC-SR04',cat:'sens',desc:'Ultrasonic distance sensor, about 2 cm to 4 m.',ifaces:['GPIO'],hosts:['zero2','pi5'],why:{esp:'Use an ESP32 library instead'},
+  claims:[{g:23,r:'TRIG',flex:1},{g:24,r:'ECHO',flex:1}],
+  outs:[{n:'distance cm',t:'num',min:2,max:400,step:1,v:80}],
+  needs:[{t:'ECHO is 5 V. Use a voltage divider before the Pi pin',ok:1},{t:'Power it from 5 V',ok:0}],
+  libs:[{id:'gpiozero',name:'gpiozero DistanceSensor',what:'Read distance with a few lines',lang:'Python',pm:'apt',pkg:'python3-gpiozero',ok:0,def:1}],
+  recipes:['Distance gauge','Parking helper'],recs:[{part:'p_ssd1306',why:'Show distance live'}]},
+ {id:'p_pir',title:'PIR motion',short:'PIR',cat:'sens',desc:'Passive infrared motion sensor with one digital output.',ifaces:['GPIO'],hosts:['zero2','pi5'],why:{esp:'Use an ESP32 library instead'},
+  claims:[{g:22,r:'OUT',flex:1}],
+  outs:[{n:'motion',t:'bool',v:false}],
+  needs:[{t:'Output is 3.3 V on most modules. Check yours',ok:0},{t:'Needs about a minute to settle after power on',ok:0}],
+  libs:[{id:'gpiozero',name:'gpiozero MotionSensor',what:'Wait for motion or poll it',lang:'Python',pm:'apt',pkg:'python3-gpiozero',ok:0,def:1}],
+  recipes:['Motion alert','Wake display on motion'],recs:[{part:'p_cam3',why:'Take a photo on motion'}]},
+ {id:'p_gps',title:'GPS (UART)',short:'GPS',cat:'sens',desc:'NMEA GPS module on the serial port.',ifaces:['UART'],hosts:['zero2','pi5'],why:{esp:'Use an ESP32 library instead'},
+  claims:[{g:14,r:'TXD'},{g:15,r:'RXD'}],
+  outs:[{n:'lat',t:'num',min:-90,max:90,step:.0001,v:34.05},{n:'lon',t:'num',min:-180,max:180,step:.0001,v:-118.24},{n:'satellites',t:'num',min:0,max:20,step:1,v:7}],
+  needs:[{t:'Enable the serial port and turn the login console off',ok:0,host:['zero2','pi5']},{t:'Needs a clear view of the sky for a first fix',ok:0}],
+  libs:[{id:'gpsd',name:'gpsd',what:'Service that reads the module and shares fixes',lang:'Service',pm:'apt',pkg:'gpsd gpsd-clients',ok:0,def:1},
+    {id:'pyserial',name:'pyserial',what:'Read the serial port from Python',lang:'Python',pm:'apt',pkg:'python3-serial',ok:0,def:1},
+    {id:'nmea',name:'pynmea2',what:'Parse NMEA sentences',lang:'Python',pm:'pip',pkg:'pynmea2',ok:0,def:1},
+    {id:'gpsdpy',name:'gpsd-py3',what:'Talk to gpsd from Python',lang:'Python',pm:'pip',pkg:'gpsd-py3',ok:0,def:0}],
+  recipes:['Location logger'],recs:[{part:'p_ssd1306',why:'Show coordinates live'}]}
+];
+function simDefaults(A){var s={};(A.outs||[]).forEach(function(o){s[o.n]=o.v!==undefined?o.v:0});return s}
+function simInput(n,o){
+  var s=n.props.sim=n.props.sim||{};
+  if(o.t==='bool'){
+    var c=h('input',{type:'checkbox'});c.checked=!!s[o.n];
+    c.addEventListener('input',function(){s[o.n]=c.checked;touch(n)});
+    return h('label',{class:'lbl'},[c,' '+o.n]);
+  }
+  var r=h('input',{type:'range',min:o.min,max:o.max,step:o.step});r.value=s[o.n]!=null?s[o.n]:o.v;
+  r.addEventListener('input',function(){s[o.n]=parseFloat(r.value);touch(n)});
+  return h('div',null,[lab('Simulated '+o.n),r]);
+}
+function partBody(n,b){
+  var A=ADDONS[n.type];
+  if(A.layout)dispBody(n,b);
+  else{mountBody(n,b);b.appendChild(h('div',{class:'flex'},[h('button',{class:'btn sm',text:'Part page',onclick:function(){openPart(n.type,n)}}),h('button',{class:'btn sm',text:'Next steps',onclick:openIdeas})]))}
+  (A.outs||[]).forEach(function(o){b.appendChild(simInput(n,o))});
+  if(A.pinsEdit){
+    n.props.pins=n.props.pins||{};
+    A.claims.forEach(function(c){
+      var i=h('input',{type:'number',min:2,max:27,step:1});i.value=n.props.pins[c.r]!=null?n.props.pins[c.r]:c.g;
+      i.addEventListener('input',function(){var v=parseInt(i.value,10);if(v>=2&&v<=27){n.props.pins[c.r]=v;touch(n);commitNow();drawWires()}});
+      b.appendChild(lab(c.r+' on GPIO'));b.appendChild(i);
+    });
+  }
+}
+function partUpd(n){if(ADDONS[n.type].layout)dispUpd(n);else mountUpd(n)}
+PARTS.forEach(function(X){
+  X.claims=X.claims||[];X.why=X.why||{};X.outs=X.outs||[];X.ins=X.ins||[];
+  ADDONS[X.id]=X;
+  def(X.id,{sink:X.ins.length>0,cat:'hw',title:X.title,desc:X.desc.split('.')[0]+'.',w:220,ins:X.ins.map(function(i){return {n:i.n,t:i.t,d:i.d}}),
+    outs:X.outs.map(function(o){return {n:o.n,t:o.t}}),
+    props:function(){var o={mount:null,sim:simDefaults(X),libs:{}};if(X.layout)o.dsp=dspDefaults(X.id);return o},
+    ev:function(n){var s=n.props.sim||{};return X.outs.map(function(o){return o.t==='bool'?!!s[o.n]:Number(s[o.n])})},
+    body:partBody,upd:partUpd});
+});
+
+/* ---------- actions: what parts can be told to do ---------- */
+var TSTAMP="time.strftime('%Y%m%d-%H%M%S')";
+function camActs(){return [
+  {id:'photo',label:'Take photo',ok:0,tpl:function(c){return{imp:['import time','from picamera2 import Picamera2'],
+    setup:[c.cam+' = Picamera2('+c.k+')',c.rec+' = False'],
+    fn:['global '+c.rec,'if '+c.rec+':','    return  # busy recording',c.cam+".start_and_capture_file('photo-' + "+TSTAMP+" + '.jpg')",c.cam+'.stop()',"print('photo saved')"]}}},
+  {id:'video',label:'Start / stop video',ok:0,tpl:function(c){return{imp:['import time','from picamera2 import Picamera2','from picamera2.encoders import H264Encoder'],
+    setup:[c.cam+' = Picamera2('+c.k+')',c.rec+' = False'],
+    fn:['global '+c.rec,'if '+c.rec+':','    '+c.cam+'.stop_recording()','    '+c.rec+' = False','else:','    '+c.cam+".start_recording(H264Encoder(10000000), 'video-' + "+TSTAMP+" + '.h264')",'    '+c.rec+' = True']}}}
+]}
+var ACT_DEFS={
+  p_cam3:camActs(),p_cam2:camActs(),p_hq:camActs(),
+  p_usbcam:[{id:'photo',label:'Take photo',ok:0,tpl:function(){return{imp:['import time','import subprocess'],setup:[],fn:["subprocess.run(['fswebcam', '-r', '1280x720', '--no-banner', 'photo-' + "+TSTAMP+" + '.jpg'])"]}}}],
+  lcd:[{id:'text',label:'Show text',arg:'text',ok:0,tpl:function(c){return{imp:['import sys',"sys.path.append('1.44inch-LCD-HAT-Code/RaspberryPi/python')   # adjust to where you unpacked the demo",'import LCD_1in44','from PIL import Image, ImageDraw'],
+    setup:['LCD = LCD_1in44.LCD()','LCD.LCD_Init(LCD_1in44.SCAN_DIR_DFT)'],
+    fn:["img = Image.new('RGB', (128, 128), 'BLACK')",'ImageDraw.Draw(img).text((4, 4), '+pyStr(c.arg||'hello')+", fill='WHITE')",'LCD.LCD_ShowImage(img, 0, 0)']}}},
+    {id:'clear',label:'Clear screen',ok:0,tpl:function(){return{imp:['import sys',"sys.path.append('1.44inch-LCD-HAT-Code/RaspberryPi/python')   # adjust to where you unpacked the demo",'import LCD_1in44'],setup:['LCD = LCD_1in44.LCD()','LCD.LCD_Init(LCD_1in44.SCAN_DIR_DFT)'],fn:['LCD.LCD_Clear()']}}}],
+  p_ssd1306:[{id:'text',label:'Show text',arg:'text',ok:0,tpl:function(c){return{imp:['from luma.core.interface.serial import i2c','from luma.oled.device import ssd1306','from luma.core.render import canvas'],
+    setup:['serial = i2c(port=1, address=0x3C)','device = ssd1306(serial)'],fn:['with canvas(device) as draw:','    draw.text((0, 0), '+pyStr(c.arg||'hello')+", fill='white')"]}}},
+    {id:'clear',label:'Clear screen',ok:0,tpl:function(){return{imp:['from luma.core.interface.serial import i2c','from luma.oled.device import ssd1306'],setup:['serial = i2c(port=1, address=0x3C)','device = ssd1306(serial)'],fn:['device.clear()']}}}],
+  eink:[{id:'clear',label:'Clear panel',ok:0,tpl:function(){return{imp:['import sys',"sys.path.append('e-Paper/RaspberryPi_JetsonNano/python/lib')",'from waveshare_epd import epd2in13_V4'],setup:['epd = epd2in13_V4.EPD()'],fn:['epd.init()','epd.Clear(0xFF)','epd.sleep()']}}}]
+};
+var HOST_ACTS=[
+  {id:'shutdown',label:'Shut down',ok:0,tpl:function(){return{imp:['import subprocess'],setup:[],fn:["subprocess.run(['sudo', 'shutdown', '-h', 'now'])"]}}},
+  {id:'reboot',label:'Reboot',ok:0,tpl:function(){return{imp:['import subprocess'],setup:[],fn:["subprocess.run(['sudo', 'reboot'])"]}}},
+  {id:'cmd',label:'Run a shell command',arg:'command',ok:0,tpl:function(c){return{imp:['import subprocess'],setup:[],fn:['subprocess.Popen('+pyStr(c.arg||'echo hi')+', shell=True)']}}}];
+function actionOptions(hn){
+  var o=[];
+  if(!hn||!HOSTS[hn.type]||!HOSTS[hn.type].pi)return o;
+  HOST_ACTS.forEach(function(a){o.push({v:hn.id+':'+a.id,t:HOSTS[hn.type].short+': '+a.label,a:a,own:hn})});
+  mountedOn(hn.id).forEach(function(p){(ACT_DEFS[p.type]||[]).forEach(function(a){o.push({v:p.id+':'+a.id,t:ADDONS[p.type].short+': '+a.label,a:a,own:p})})});
+  P.nodes.forEach(function(p){if(p.type==='photolib'&&p.props.host===hn.id)ACT_DEFS.photolib.forEach(function(a){o.push({v:p.id+':'+a.id,t:'Library: '+a.label,a:a,own:p})})});
+  return o;
+}
+function actionTarget(n){
+  var hn=NM[n.props.host];if(!hn||!isHost(hn))return null;
+  return actionOptions(hn).filter(function(x){return x.v===n.props.target})[0]||null;
+}
+def('action',{cat:'logic',title:'Action',desc:'Does something on a part when triggered.',w:230,
+  ins:[{n:'trigger',t:'bool',d:false}],outs:[{n:'fired',t:'num'},{n:'ready',t:'bool'}],
+  props:function(){return{host:null,target:'',arg:'',mode:'press'}},
+  ev:function(n,i){
+    var t=!!i[0];
+    if(t&&!n.rt.prev){n.rt.fired=(n.rt.fired||0)+1;simFire(n);setTimeout(function(){refresh()},0)}
+    n.rt.prev=t;
+    return[n.rt.fired||0,!!actionTarget(n)];
+  },
+  body:function(n,b){
+    b.appendChild(lab('On'));n.rt.hs=h('select');b.appendChild(n.rt.hs);
+    n.rt.hs.addEventListener('change',function(){n.props.host=n.rt.hs.value===''?null:parseInt(n.rt.hs.value,10);n.props.target='';touch(n)});
+    b.appendChild(lab('Do'));n.rt.ts=h('select');b.appendChild(n.rt.ts);
+    n.rt.ts.addEventListener('change',function(){n.props.target=n.rt.ts.value;touch(n)});
+    n.rt.ai=h('input',{type:'text',placeholder:'value'});b.appendChild(n.rt.ai);
+    n.rt.ai.addEventListener('input',function(){n.props.arg=n.rt.ai.value;changed()});
+    n.rt.msl=lab('Fires when');b.appendChild(n.rt.msl);n.rt.ms=h('select');
+    [['press','Trigger turns on'],['release','Trigger turns off'],['hold','Held for 1 second'],['hold3','Held for 3 seconds']].forEach(function(x){n.rt.ms.appendChild(h('option',{value:x[0],text:x[1]}))});
+    n.rt.ms.value=n.props.mode;n.rt.ms.addEventListener('change',function(){n.props.mode=n.rt.ms.value;changed()});
+    b.appendChild(n.rt.ms);
+    n.rt.msg=h('div',{class:'lbl'});b.appendChild(n.rt.msg);
+    b.appendChild(h('div',{class:'flex'},[h('button',{class:'btn sm',text:'Test fire',onclick:function(){n.rt.fired=(n.rt.fired||0)+1;simFire(n);refresh()}}),h('button',{class:'btn sm',text:'Controls script',onclick:openControls})]));
+  },
+  upd:function(n){
+    var hosts=P.nodes.filter(function(x){return isHost(x)&&HOSTS[x.type].pi});
+    if(n.props.host==null||!NM[n.props.host]){if(hosts.length&&n.props.host==null)n.props.host=hosts[0].id}
+    var hn=NM[n.props.host],opts=actionOptions(hn);
+    var sig=JSON.stringify([hosts.map(function(x){return x.id}),n.props.host,opts.map(function(o){return o.v}),n.props.target]);
+    if(n.rt.sig!==sig){
+      n.rt.sig=sig;n.rt.hs.innerHTML='';
+      n.rt.hs.appendChild(h('option',{value:'',text:hosts.length?'Choose a Pi':'Add a Pi first'}));
+      hosts.forEach(function(x){n.rt.hs.appendChild(h('option',{value:String(x.id),text:HOSTS[x.type].title+' #'+x.id}))});
+      n.rt.hs.value=n.props.host==null?'':String(n.props.host);
+      n.rt.ts.innerHTML='';
+      n.rt.ts.appendChild(h('option',{value:'',text:opts.length?'Choose an action':'Nothing to do yet'}));
+      var stale=n.props.target&&!opts.some(function(o){return o.v===n.props.target});
+      if(stale)n.rt.ts.appendChild(h('option',{value:n.props.target,text:'(no longer available)'}));
+      opts.forEach(function(o){n.rt.ts.appendChild(h('option',{value:o.v,text:o.t}))});
+      n.rt.ts.value=n.props.target||'';
+    }
+    var tg=actionTarget(n);
+    n.rt.ai.style.display=tg&&tg.a.arg?'':'none';
+    n.rt.ai.placeholder=tg&&tg.a.arg||'';
+    if(document.activeElement!==n.rt.ai)n.rt.ai.value=n.props.arg||'';
+    var bad=n.props.target&&!tg;
+    n.rt.msg.className='lbl '+(bad?'msg-bad':'');
+    var w0=INW[n.id+':0'],up=w0&&NM[w0.from.n],chained=!!(up&&up.type==='action');
+    n.rt.ms.style.display=chained?'none':'';n.rt.msl.style.display=chained?'none':'';
+    n.rt.msg.textContent=chained?'Runs right after '+((actionTarget(up)||{a:{label:'the previous'}}).a.label.toLowerCase())+' (same key press)':bad?'That part is no longer mounted on this Pi':'Fired '+(n.rt.fired||0)+' time'+((n.rt.fired||0)===1?'':'s')+(n.rt.mock?'. Mock photo #'+n.rt.mock+' taken in the preview':'');
+    EL[n.id].sub.textContent=tg?tg.a.label:'';
+  }});
+
+/* ---------- show-photo actions and next steps ---------- */
+function showPhotoImports(){return ['import glob']}
+ACT_DEFS.lcd.push({id:'show',label:'Show last photo',ok:0,tpl:function(){return{imp:['import glob','import sys',"sys.path.append('1.44inch-LCD-HAT-Code/RaspberryPi/python')   # adjust to where you unpacked the demo",'import LCD_1in44','from PIL import Image'],
+  setup:['LCD = LCD_1in44.LCD()','LCD.LCD_Init(LCD_1in44.SCAN_DIR_DFT)'],
+  fn:["photos = sorted(glob.glob('photo-*.jpg'))",'if photos:',"    LCD.LCD_ShowImage(Image.open(photos[-1]).convert('RGB').resize((128, 128)), 0, 0)"]}}});
+ACT_DEFS.p_ssd1306.push({id:'show',label:'Show last photo',ok:0,tpl:function(){return{imp:['import glob','from PIL import Image','from luma.core.interface.serial import i2c','from luma.oled.device import ssd1306'],
+  setup:['serial = i2c(port=1, address=0x3C)','device = ssd1306(serial)'],
+  fn:["photos = sorted(glob.glob('photo-*.jpg'))",'if photos:',"    device.display(Image.open(photos[-1]).convert('1').resize((device.width, device.height)))"]}}});
+ACT_DEFS.eink.push({id:'show',label:'Show last photo',ok:0,tpl:function(){return{imp:['import glob','import sys',"sys.path.append('e-Paper/RaspberryPi_JetsonNano/python/lib')",'from waveshare_epd import epd2in13_V4','from PIL import Image'],
+  setup:['epd = epd2in13_V4.EPD()'],
+  fn:["photos = sorted(glob.glob('photo-*.jpg'))",'if photos:','    epd.init()',"    shot = Image.open(photos[-1]).convert('1').resize((epd.height, epd.width))",'    epd.display(epd.getbuffer(shot))','    epd.sleep()']}}});
+
+function partsOn(hn){return mountedOn(hn.id)}
+function hasAct(owner,id){return P.nodes.some(function(n){return n.type==='action'&&n.props.target===owner.id+':'+id})}
+function freeOut(src,prefer){
+  var names=TY[src.type].outs.map(function(o){return o.n}),order=prefer||names;
+  for(var i=0;i<order.length;i++){
+    var p=names.indexOf(order[i]);if(p<0)continue;
+    if(!P.wires.some(function(w){return w.from.n===src.id&&w.from.p===p}))return p;
+  }
+  return -1;
+}
+function mkAction(hn,owner,actId,src,mode){
+  var cnt=P.nodes.filter(function(n){return n.type==='action'}).length;
+  var n=addNode('action');
+  n.props.host=hn.id;n.props.target=owner.id+':'+actId;n.props.mode=mode||'press';
+  var near=src?src.n:hn;
+  n.x=Math.round(near.x+near.w+100);n.y=Math.round(near.y+cnt*200);
+  var r=EL[n.id].root;r.style.left=n.x+'px';r.style.top=n.y+'px';
+  if(src)P.wires.push({id:uid(),from:{n:src.n.id,p:src.p},to:{n:n.id,p:0}});
+  refresh();drawWires();commitNow();drawMini();
+  return n;
+}
+function addFrameToScreen(sc){
+  var c=dcfg(sc),d=sc.props.dsp;
+  d.els.push({t:'img',x:Math.round(c.w*0.45),y:Math.round(c.h*0.1),w:Math.round(c.w*0.5),h:Math.round(c.h*0.8),src:P.nodes.some(function(n){return n.type==='photolib'})?'library':'last',c:c.mono?'#000000':'#ffffff'});
+  d.sel=d.els.length-1;refresh();commitNow();
+}
+function showValueOnScreen(sc,srcNode,port,label){
+  var T=TY[sc.type],k=-1;
+  for(var i=0;i<T.ins.length;i++){if(!P.wires.some(function(w){return w.to.n===sc.id&&w.to.p===i})){k=i;break}}
+  if(k<0){toast('All inputs on that screen are in use');return false}
+  P.wires.push({id:uid(),from:{n:srcNode.id,p:port},to:{n:sc.id,p:k}});
+  var d=sc.props.dsp,c=dcfg(sc),used=d.els.filter(function(e){return e.t==='text'}).length;
+  d.els.push({t:'text',x:4,y:Math.min(c.h-14,4+used*(c.mono?14:16)),s:c.mono?12:12,b:0,v:label+' {in'+(k+1)+'}',c:c.mono?'#000000':'#ffffff'});
+  refresh();drawWires();commitNow();return true;
+}
+function ideas(){
+  var out=[];
+  P.nodes.filter(function(x){return isHost(x)&&HOSTS[x.type].pi}).forEach(function(hn){
+    var parts=partsOn(hn);
+    var cams=parts.filter(function(p){return ADDONS[p.type].cat==='cam'}),
+      picam=cams.filter(function(p){return /^p_(cam|hq)/.test(p.type)})[0],
+      scr=parts.filter(function(p){return ACT_DEFS[p.type]&&ACT_DEFS[p.type].some(function(a){return a.id==='show'})}),
+      lcd=parts.filter(function(p){return p.type==='lcd'})[0],
+      btns=parts.filter(function(p){return p.type==='p_button'}),
+      pir=parts.filter(function(p){return p.type==='p_pir'})[0],
+      ps=parts.filter(function(p){return p.type==='ps'})[0],
+      sens=parts.filter(function(p){return ADDONS[p.type].cat==='sens'&&ADDONS[p.type].outs.length&&p.type!=='p_pir'});
+    function keyFor(prefer){
+      if(lcd){var q=freeOut(lcd,prefer);if(q>=0)return{n:lcd,p:q}}
+      for(var i=0;i<btns.length;i++){var r=freeOut(btns[i],['pressed']);if(r>=0)return{n:btns[i],p:r}}
+      return null;
+    }
+    var cam=picam||cams[0];
+    if(cam&&!scr.length){
+      out.push({title:'Add a screen to see your photos',why:'You have a camera but nothing to show its pictures on. Pick one and its libraries and layout tools come with it.',
+        btns:[['LCD HAT (color, with buttons)','lcd'],['OLED','p_ssd1306'],['E-ink','eink']].map(function(x){return [x[0],function(){addPartNode(x[1],hn)}]})});
+    }
+    if(cam&&!lcd&&!btns.length){
+      out.push({title:'Add buttons to control the '+ADDONS[cam.type].short,why:'The LCD HAT has a joystick and three keys. A single push button works too.',
+        btns:[['Add LCD HAT',function(){addPartNode('lcd',hn)}],['Add push button',function(){addPartNode('p_button',hn)}]]});
+    }
+    if(picam&&!hasAct(picam,'photo')){
+      var k1=keyFor(['press','key1','key2','key3']);
+      if(k1)out.push({title:'Take a photo with a button',why:'Wires a key to a Take photo action.',btns:[['Add it',function(){mkAction(hn,picam,'photo',k1,'press')}]]});
+    }
+    if(picam&&scr.length&&hasAct(picam,'photo')&&!hasAct(scr[0],'show')){
+      var k2=keyFor(['key1','key2','key3','press','up','down']);
+      if(k2)out.push({title:'Show the last photo on the '+ADDONS[scr[0].type].short,why:'Adds a Show last photo action on another key. Press one key to shoot and the other to look.',btns:[['Add it',function(){mkAction(hn,scr[0],'show',k2,'press')}]]});
+    }
+    if(cam&&scr.length&&!scr[0].props.dsp.els.some(function(e){return e.t==='img'})){
+      out.push({title:'Put the camera frame in the '+ADDONS[scr[0].type].short+' layout',why:'Adds a photo area to the screen layout. You can move and resize it, and choose between the last photo and a live frame.',btns:[['Add it',function(){addFrameToScreen(scr[0])}]]});
+    }
+    if(picam&&hasAct(picam,'photo')&&!hasAct(picam,'video')){
+      var k3=keyFor(['key3','key2','key1','press']);
+      if(k3)out.push({title:'Record video with another key',why:'One press starts recording, the next press stops it.',btns:[['Add it',function(){mkAction(hn,picam,'video',k3,'press')}]]});
+    }
+    if(picam&&pir&&!P.wires.some(function(w){return w.from.n===pir.id})){
+      out.push({title:'Take a photo when motion is seen',why:'Wires the PIR sensor to the camera.',btns:[['Add it',function(){mkAction(hn,picam,'photo',{n:pir,p:0},'press')}]]});
+    }
+    if(cam&&!pir)out.push({title:'Add a motion sensor',why:'A PIR sensor can trigger the camera on its own.',btns:[['Add PIR',function(){addPartNode('p_pir',hn)}]]});
+    if(scr.length&&ps&&!P.wires.some(function(w){return w.from.n===ps.id&&w.to.n===scr[0].id})){
+      out.push({title:'Show the battery level on the '+ADDONS[scr[0].type].short,why:'Wires the PiSugar battery to a text line on the screen.',btns:[['Add it',function(){showValueOnScreen(scr[0],ps,0,'batt')}]]});
+    }
+    if(scr.length)sens.forEach(function(s){
+      if(P.wires.some(function(w){return w.from.n===s.id&&w.to.n===scr[0].id}))return;
+      out.push({title:'Show '+ADDONS[s.type].short+' readings on the '+ADDONS[scr[0].type].short,why:'Wires '+ADDONS[s.type].outs[0].n+' to a text line.',btns:[['Add it',function(){showValueOnScreen(scr[0],s,0,ADDONS[s.type].outs[0].n.split(' ')[0])}]]});
+    });
+    if(!P.nodes.some(function(n){return n.type==='action'&&n.props.target===hn.id+':shutdown'})){
+      var k4=keyFor(['key3','key2','key1']);
+      if(k4)out.push({title:'Hold a key to shut down safely',why:'Holding for a second shuts the Pi down so the SD card is not corrupted by cutting power.',btns:[['Add it',function(){mkAction(hn,hn,'shutdown',k4,'hold')}]]});
+    }
+    var lib=libFor(hn);
+    if(picam&&scr.length&&hasAct(picam,'photo')&&!lib){
+      out.push({title:'Keep and browse your photos',why:'Adds a Photo library that numbers every photo and remembers which one you are viewing. Then Next and Previous keys can cycle through them.',
+        btns:[['Add it',function(){
+          var L=addNode('photolib');L.props.host=hn.id;L.x=hn.x+hn.w+60;L.y=hn.y+420;EL[L.id].root.style.left=L.x+'px';EL[L.id].root.style.top=L.y+'px';
+          var kn=keyFor(['right','key2']),kp=keyFor(['left','key3']);
+          if(kn)mkAction(hn,L,'next',kn,'press');
+          kp=keyFor(['left','key3']);if(kp)mkAction(hn,L,'prev',kp,'press');
+          refresh();drawWires();commitNow();}]]});
+    }
+    if(lib&&scr.length&&!P.wires.some(function(w){return w.from.n===lib.id&&w.to.n===scr[0].id})){
+      out.push({title:'Show the photo number on the '+ADDONS[scr[0].type].short,why:'Wires the library to a line like "photo 3 / 12" on the screen.',
+        btns:[['Add it',function(){
+          if(showValueOnScreen(scr[0],lib,1,'photo')){var d=scr[0].props.dsp,last=d.els[d.els.length-1];var k=parseInt(last.v.match(/\{in(\d)\}/)[1],10);
+            var T=TY[scr[0].type],k2=-1;for(var i=0;i<T.ins.length;i++){if(!P.wires.some(function(w){return w.to.n===scr[0].id&&w.to.p===i})){k2=i;break}}
+            if(k2>=0){wireUp(lib,0,scr[0],k2);last.v='photo {in'+k+'} / {in'+(k2+1)+'}';refresh();commitNow()}}}]]});
+    }
+    if(lib&&!hasAct(lib,'delete')){
+      var kd=keyFor(['down','up','key3']);
+      if(kd)out.push({title:'Hold a key to delete the current photo',why:'Needs a 3 second hold so you do not delete one by accident.',btns:[['Add it',function(){mkAction(hn,lib,'delete',kd,'hold3')}]]});
+    }
+    if(parts.some(function(p){return ADDONS[p.type].layout})&&!parts.some(function(p){return p.props.dsp&&p.props.dsp.els.some(function(e){return e.t==='icon'})})){
+      var sc2=parts.filter(function(p){return ADDONS[p.type].layout})[0];
+      out.push({title:'Add an icon to the '+ADDONS[sc2.type].short+' layout',why:'Icons like battery, wifi, camera and heart can show up on the screen, and each can appear only when a value is on.',btns:[['Add a battery icon',function(){addIconToScreen(sc2,'battery')}]]});
+    }
+  });
+  return out;
+}
+function openIdeas(){
+  openSheet('Next steps',function(b){
+    var list=ideas();
+    b.appendChild(h('div',{class:'note',text:'Ideas based on what is on your canvas right now. Each one adds blocks and wires you can change or delete. Nothing is locked in.'}));
+    if(!list.length){
+      b.appendChild(h('div',{class:'note',text:P.nodes.some(function(n){return isHost(n)})?'No suggestions for this setup yet. Add parts from the catalog and new ideas will show up here.':'Add a Pi or an ESP32 first, then parts. Ideas appear as the canvas fills up.'}));
+    }
+    list.forEach(function(x){
+      b.appendChild(h('div',{class:'item'},[h('div',{class:'t'},[h('b',{text:x.title}),h('span',{text:x.why}),
+        h('div',{class:'flex',style:'margin-top:6px'},x.btns.map(function(bt){return h('button',{class:'btn sm',text:bt[0],onclick:function(){bt[1]();setTimeout(openIdeas,0)}})}))]),badgeEl(2)]));
+    });
+    b.appendChild(h('div',{class:'flex',style:'margin-top:14px'},[h('button',{class:'btn',text:'Browse parts catalog',onclick:function(){openCatalog()}})]));
+  });
+}
+
+/* ---------- inputs, icons, live sensors, project files, starters ---------- */
+CATS.push({id:'inp',name:'Inputs',blurb:'Buttons and dials'});
+function regPart(X){
+  X.claims=X.claims||[];X.why=X.why||{};X.outs=X.outs||[];X.ins=X.ins||[];
+  ADDONS[X.id]=X;
+  def(X.id,{sink:X.ins.length>0,cat:'hw',title:X.title,desc:X.desc.split('.')[0]+'.',w:220,ins:X.ins.map(function(i){return {n:i.n,t:i.t,d:i.d}}),
+    outs:X.outs.map(function(o){return {n:o.n,t:o.t}}),
+    props:function(){var o={mount:null,sim:simDefaults(X),libs:{}};if(X.layout)o.dsp=dspDefaults(X.id);return o},
+    ev:function(n){var s=n.props.sim||{};return X.outs.map(function(o){return o.t==='bool'?!!s[o.n]:Number(s[o.n])})},
+    body:partBody,upd:partUpd});
+}
+var GPZ={id:'gpiozero',name:'gpiozero',what:'Buttons, encoders and sensors with a few lines',lang:'Python',pm:'apt',pkg:'python3-gpiozero',ok:0,def:1};
+[
+ {id:'p_button',title:'Push button',short:'Button',cat:'inp',desc:'A single momentary push button wired between one GPIO and ground.',ifaces:['GPIO'],hosts:['zero2','pi5'],why:{esp:'Use an ESP32 library instead'},
+  claims:[{g:22,r:'IN',flex:1}],pinsEdit:true,outs:[{n:'pressed',t:'bool',v:false}],
+  needs:[{t:'One leg to the GPIO pin, the other leg to GND. No resistor needed, the Pi pull-up is turned on in software',ok:0},{t:'gpiozero handles debouncing',ok:0}],
+  libs:[GPZ],recipes:['Shutter button','Wake the screen','Menu select'],recs:[{part:'p_cam3',why:'A shutter button for the camera'},{part:'p_ssd1306',why:'Show what the button did'}]},
+ {id:'p_encoder',title:'Rotary encoder',short:'Encoder',cat:'inp',desc:'A dial that clicks as it turns, usually with a push switch (KY-040 style).',ifaces:['GPIO'],hosts:['zero2','pi5'],why:{esp:'Use an ESP32 library instead'},
+  claims:[{g:20,r:'CLK',flex:1},{g:21,r:'DT',flex:1},{g:16,r:'SW',flex:1}],pinsEdit:true,
+  outs:[{n:'clockwise',t:'bool',v:false},{n:'counter',t:'bool',v:false},{n:'press',t:'bool',v:false}],
+  needs:[{t:'Power from 3.3 V so the signals are safe for the Pi',ok:0},{t:'Turning is read as two signals (CLK and DT)',ok:0}],
+  libs:[GPZ],recipes:['Volume or brightness dial','Scroll a menu'],recs:[{part:'p_ssd1306',why:'Show the value as you turn'}]},
+ {id:'p_touchpad',title:'Touch pad',short:'Touch',cat:'inp',desc:'Capacitive touch pad (TTP223 style). Press with a finger, no moving parts.',ifaces:['GPIO'],hosts:['zero2','pi5'],why:{esp:'Use an ESP32 library instead'},
+  claims:[{g:27,r:'OUT',flex:1}],pinsEdit:true,outs:[{n:'touched',t:'bool',v:false}],
+  needs:[{t:'Output goes high when touched, so it is read active-high',ok:0},{t:'Power from 3.3 V',ok:0}],
+  libs:[GPZ],recipes:['Silent button','Hidden control behind a panel'],recs:[]}
+].forEach(regPart);
+
+/* ---------- icons ---------- */
+var ICON_DEFS={
+  battery:[['r',1,4,12,8,0],['r',13,6,2,4,1],['r',3,6,6,4,1]],
+  bolt:[['p',[[9,1],[3,9],[7,9],[6,15],[13,6],[9,6]],1]],
+  wifi:[['a',8,13,11,230,310],['a',8,13,7.5,230,310],['a',8,13,4,230,310],['c',8,13,1,1]],
+  signal:[['r',1,11,3,3,1],['r',5,8,3,6,1],['r',9,5,3,9,1],['r',13,2,2,12,1]],
+  camera:[['r',1,5,14,9,0],['r',5,3,6,2,1],['c',8,9.5,2.8,0]],
+  record:[['c',8,8,5,1]],
+  play:[['p',[[4,2],[13,8],[4,14]],1]],
+  pause:[['r',3,2,3,12,1],['r',10,2,3,12,1]],
+  sun:[['c',8,8,3,1],['l',8,1,8,3],['l',8,13,8,15],['l',1,8,3,8],['l',13,8,15,8],['l',3,3,4.5,4.5],['l',11.5,11.5,13,13],['l',3,13,4.5,11.5],['l',11.5,4.5,13,3]],
+  thermometer:[['r',7,1,2,9,0],['c',8,12,3,1]],
+  drop:[['p',[[8,1],[12,8],[12,10],[10,13],[8,14],[6,13],[4,10],[4,8]],1]],
+  heart:[['p',[[8,14],[2,8],[2,5],[4,3],[6,3],[8,5],[10,3],[12,3],[14,5],[14,8]],1]],
+  bell:[['p',[[8,2],[11,5],[11,9],[13,11],[3,11],[5,9],[5,5]],1],['c',8,13,1.2,1]],
+  check:[['l',2,8,6,12],['l',6,12,14,3]],
+  cross:[['l',3,3,13,13],['l',13,3,3,13]],
+  arrow:[['l',2,8,13,8],['l',13,8,8,3],['l',13,8,8,13]],
+  home:[['p',[[8,2],[15,8],[13,8],[13,14],[3,14],[3,8],[1,8]],0]]
+};
+function truthy(v){return !(v===undefined||v===null||v===false||v===0||v===''||v==='false'||v==='0')}
+function drawIcon(ctx,name,x,y,s,col){
+  var D=ICON_DEFS[name]||[],k=s/16;
+  ctx.save();ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=Math.max(1,s/12);ctx.lineCap='round';
+  D.forEach(function(p){
+    var t=p[0];
+    if(t==='r'){if(p[5])ctx.fillRect(x+p[1]*k,y+p[2]*k,p[3]*k,p[4]*k);else ctx.strokeRect(x+p[1]*k+.5,y+p[2]*k+.5,p[3]*k-1,p[4]*k-1)}
+    else if(t==='l'){ctx.beginPath();ctx.moveTo(x+p[1]*k,y+p[2]*k);ctx.lineTo(x+p[3]*k,y+p[4]*k);ctx.stroke()}
+    else if(t==='c'){ctx.beginPath();ctx.arc(x+p[1]*k,y+p[2]*k,p[3]*k,0,6.2832);if(p[4])ctx.fill();else ctx.stroke()}
+    else if(t==='p'){ctx.beginPath();p[1].forEach(function(q,i){if(i)ctx.lineTo(x+q[0]*k,y+q[1]*k);else ctx.moveTo(x+q[0]*k,y+q[1]*k)});ctx.closePath();if(p[2])ctx.fill();else ctx.stroke()}
+    else if(t==='a'){ctx.beginPath();ctx.arc(x+p[1]*k,y+p[2]*k,p[3]*k,p[4]*Math.PI/180,p[5]*Math.PI/180);ctx.stroke()}
+  });
+  ctx.restore();
+}
+var ICON_PY=['def draw_icon(d, name, x, y, size, fill):','    k = size / 16','    w = max(1, round(size / 12))','    for p in ICONS[name]:','        t = p[0]','        if t == \'r\':',
+ '            d.rectangle((x + p[1] * k, y + p[2] * k, x + (p[1] + p[3]) * k - 1, y + (p[2] + p[4]) * k - 1), outline=fill, fill=fill if p[5] else None)',
+ '        elif t == \'l\':','            d.line((x + p[1] * k, y + p[2] * k, x + p[3] * k, y + p[4] * k), fill=fill, width=w)',
+ '        elif t == \'c\':','            d.ellipse((x + (p[1] - p[3]) * k, y + (p[2] - p[3]) * k, x + (p[1] + p[3]) * k, y + (p[2] + p[3]) * k), outline=fill, fill=fill if p[4] else None)',
+ '        elif t == \'p\':','            d.polygon([(x + a * k, y + b * k) for a, b in p[1]], outline=fill, fill=fill if p[2] else None)',
+ '        elif t == \'a\':','            r = p[3] * k','            d.arc((x + p[1] * k - r, y + p[2] * k - r, x + p[1] * k + r, y + p[2] * k + r), p[4], p[5], fill=fill, width=w)','',''];
+
+/* ---------- live sensor reads for the generated scripts ---------- */
+var SENS={
+  p_bme280:{imp:['import board','from adafruit_bme280 import basic as adafruit_bme280'],init:['_i2c = board.I2C()','_bme_{id} = adafruit_bme280.Adafruit_BME280_I2C(_i2c, address=0x76)'],
+    read:{'temp C':'round(_bme_{id}.temperature, 1)','humidity %':'round(_bme_{id}.relative_humidity)','pressure hPa':'round(_bme_{id}.pressure)'}},
+  p_hcsr04:{imp:['from gpiozero import DistanceSensor'],init:['_sonar_{id} = DistanceSensor(echo={ECHO}, trigger={TRIG})'],read:{'distance cm':'round(_sonar_{id}.distance * 100)'}},
+  p_pir:{imp:['from gpiozero import MotionSensor'],init:['_pir_{id} = MotionSensor({OUT})'],read:{'motion':'_pir_{id}.motion_detected'}}
+};
+function sensorLive(s,p){
+  var T=SENS[s.type];if(!T)return null;
+  var o=ADDONS[s.type].outs[p];if(!o||!T.read[o.n])return null;
+  function sub(t){var r=String(t).replace(/\{id\}/g,s.id);claimsOf(s).forEach(function(c){r=r.replace('{'+c.r+'}',c.g)});return r}
+  return{id:s.id,imp:T.imp,init:T.init.map(sub),expr:sub(T.read[o.n])};
+}
+/* ---------- photo library ---------- */
+function libFor(hn){return P.nodes.filter(function(n){return n.type==='photolib'&&n.props.host===hn.id})[0]||null}
+function cleanName(v,def){var t=String(v||'').replace(/[^A-Za-z0-9_\-\/]/g,'');return t||def}
+function genPhotoLib(n){
+  var p=n.props;
+  return ['"""Shared photo library. Keep this file in the same folder as your other scripts."""','import glob','import json','import os','import re','import shutil','import time','',
+   'FOLDER = '+pyStr(cleanName(p.folder,'photos')),
+   'NAMING = '+pyStr(p.naming==='number'?'number':'time')+"   # 'time' or 'number'",
+   'PREFIX = '+pyStr(cleanName(p.prefix,'img')),
+   'RESUME = '+pyStr(p.resume==='last'?'last':'newest')+"   # where to start after a restart: 'newest' or 'last'",
+   "FAVORITES = 'favorites'","STATE = os.path.join(FOLDER, '.state.json')",'',
+   'os.makedirs(FOLDER, exist_ok=True)','','',
+   'def photos():',"    return sorted(glob.glob(os.path.join(FOLDER, '*.jpg')))",'','',
+   'def count():','    return len(photos())','','',
+   'def _load():','    try:','        with open(STATE) as f:','            return json.load(f)','    except Exception:','        return {}','','',
+   'def _save(state):',"    with open(STATE, 'w') as f:",'        json.dump(state, f)','','',
+   'def index():','    """Number of the photo being viewed, starting at 1. 0 when the library is empty."""','    n = count()','    if n == 0:','        return 0',"    i = _load().get('index')",'    if not i or i < 1 or i > n:','        return n','    return i','','',
+   'def set_index(i):',"    _save({'index': i})",'','',
+   'def current_path():','    n = index()','    return photos()[n - 1] if n else None','','',
+   'def current_name():','    path = current_path()',"    return os.path.basename(path) if path else ''",'','',
+   'def next_photo():','    n = count()','    if n:','        set_index(index() % n + 1)','','',
+   'def prev_photo():','    n = count()','    if n:','        set_index((index() - 2) % n + 1)','','',
+   'def show_newest():','    set_index(None)','','',
+   'def next_path():','    """Where the next photo should be saved."""',"    if NAMING == 'number':",
+   "        nums = [int(m.group(1)) for f in photos() for m in [re.search(r'(\\d+)\\.jpg$', f)] if m]",
+   "        return os.path.join(FOLDER, '%s-%04d.jpg' % (PREFIX, max(nums, default=0) + 1))",
+   "    return os.path.join(FOLDER, PREFIX + '-' + time.strftime('%Y%m%d-%H%M%S') + '.jpg')",'','',
+   'def note_new():','    """Call after saving a photo so the screen jumps to it."""','    show_newest()','','',
+   'def delete_current():','    path = current_path()','    if path:','        i = index()','        os.remove(path)','        set_index(min(i, count()) or None)','','',
+   'def keep_current():','    path = current_path()','    if path:','        os.makedirs(FAVORITES, exist_ok=True)','        shutil.copy(path, FAVORITES)','','',
+   'def on_start():',"    if RESUME == 'newest':",'        show_newest()'].join('\n');
+}
+function genGetPhotos(n){
+  var f=cleanName(n.props.folder,'photos');
+  return ['#!/bin/bash','# Run this on YOUR computer, not on the Pi. It copies the photos over your network.','PI_USER="pi"                  # your Pi username','PI_HOST="raspberrypi.local"    # your Pi hostname or address','REMOTE_DIR="~"                # folder on the Pi that holds photolib.py','',
+    'mkdir -p pi-photos','scp -r "$PI_USER@$PI_HOST:$REMOTE_DIR/'+f+'/" pi-photos/','',
+    '# Just want a look without copying? On the Pi, from the folder that holds '+f+'/ run:','#   cd '+f+' && python3 -m http.server 8000','# then open http://$PI_HOST:8000 on a device on the same network.','# Anyone on your network can see the photos while it runs, so stop it with Ctrl+C when done.'].join('\n');
+}
+ACT_DEFS.photolib=[
+  {id:'next',label:'Next photo',ok:0,tpl:function(){return{imp:['import photolib'],setup:[],fn:['photolib.next_photo()']}}},
+  {id:'prev',label:'Previous photo',ok:0,tpl:function(){return{imp:['import photolib'],setup:[],fn:['photolib.prev_photo()']}}},
+  {id:'newest',label:'Jump to newest',ok:0,tpl:function(){return{imp:['import photolib'],setup:[],fn:['photolib.show_newest()']}}},
+  {id:'delete',label:'Delete current photo',ok:0,tpl:function(){return{imp:['import photolib'],setup:[],fn:['photolib.delete_current()']}}},
+  {id:'keep',label:'Keep as favorite',ok:0,tpl:function(){return{imp:['import photolib'],setup:[],fn:['photolib.keep_current()']}}}
+];
+/* when a library is on the Pi, camera and screen actions use it */
+function wrapLib(a,kind){
+  var old=a.tpl;
+  a.tpl=function(c){
+    var t=old(c);if(!c.lib)return t;
+    t.imp=t.imp.map(function(x){return x==='import glob'?'import photolib':x});if(t.imp.indexOf('import photolib')<0)t.imp.push('import photolib');
+    if(kind==='cam'){
+      var fn=[];t.fn.forEach(function(l){
+        if(l.indexOf("start_and_capture_file('photo-'")>=0)fn.push(c.cam+'.start_and_capture_file(photolib.next_path())');
+        else{fn.push(l);if(l===c.cam+'.stop()')fn.push('photolib.note_new()')}
+      });t.fn=fn;
+    }else if(kind==='usb'){
+      t.fn=['path = photolib.next_path()',"subprocess.run(['fswebcam', '-r', '1280x720', '--no-banner', path])",'photolib.note_new()'];
+    }else if(kind==='show'){
+      t.fn=t.fn.map(function(l){return l.indexOf("photos = sorted(glob.glob('photo-*.jpg'))")===0?'photos = [photolib.current_path()] if photolib.current_path() else []':l});
+    }
+    return t;
+  };
+}
+['p_cam3','p_cam2','p_hq'].forEach(function(k){ACT_DEFS[k].forEach(function(a){if(a.id==='photo')wrapLib(a,'cam')})});
+ACT_DEFS.p_usbcam.forEach(function(a){if(a.id==='photo')wrapLib(a,'usb')});
+['lcd','p_ssd1306','eink'].forEach(function(k){ACT_DEFS[k].forEach(function(a){if(a.id==='show'){wrapLib(a,'show');a.label='Show photo'}})});
+
+def('photolib',{cat:'in',title:'Photo library',desc:'Saves, numbers and recalls your photos.',w:230,ins:[],
+  outs:[{n:'count',t:'num'},{n:'number',t:'num'},{n:'name',t:'text'}],
+  props:function(){return{host:null,folder:'photos',naming:'number',prefix:'img',resume:'newest',sim:{count:12,index:3}}},
+  ev:function(n){
+    var s=n.props.sim||{count:0,index:0},c=Number(s.count)||0,i=Math.min(Number(s.index)||0,c);
+    return[c,i,i?(n.props.naming==='number'?cleanName(n.props.prefix,'img')+'-'+('0000'+i).slice(-4)+'.jpg':'photo-'+i+'.jpg'):''];
+  },
+  body:function(n,b){
+    b.appendChild(lab('On'));n.rt.hs=h('select');b.appendChild(n.rt.hs);
+    n.rt.hs.addEventListener('change',function(){n.props.host=n.rt.hs.value===''?null:parseInt(n.rt.hs.value,10);touch(n)});
+    b.appendChild(lab('Folder on the Pi'));b.appendChild(inp(n,'folder',{ph:'photos'}));
+    b.appendChild(lab('Names'));b.appendChild(sel2(n,'naming',[['number','Numbered: img-0001'],['time','Date and time']]));
+    b.appendChild(lab('Name starts with'));b.appendChild(inp(n,'prefix',{ph:'img'}));
+    b.appendChild(lab('After a restart'));b.appendChild(sel2(n,'resume',[['newest','Open on the newest photo'],['last','Open where I left off']]));
+    n.props.sim=n.props.sim||{count:12,index:3};
+    var c=h('input',{type:'range',min:0,max:50,step:1}),i=h('input',{type:'range',min:0,max:50,step:1});c.value=n.props.sim.count;i.value=n.props.sim.index;
+    c.addEventListener('input',function(){n.props.sim.count=parseInt(c.value,10);touch(n)});i.addEventListener('input',function(){n.props.sim.index=parseInt(i.value,10);touch(n)});
+    b.appendChild(lab('Simulated photo count'));b.appendChild(c);b.appendChild(lab('Simulated current photo'));b.appendChild(i);
+    b.appendChild(h('div',{class:'flex'},[h('button',{class:'btn sm',text:'Open in console',onclick:function(){openConsole('photolib')}})]));
+  },
+  upd:function(n){
+    var hosts=piHosts();
+    if(n.props.host==null&&hosts.length)n.props.host=hosts[0].id;
+    var sig=JSON.stringify([hosts.map(function(x){return x.id}),n.props.host]);
+    if(n.rt.sig!==sig){
+      n.rt.sig=sig;n.rt.hs.innerHTML='';
+      n.rt.hs.appendChild(h('option',{value:'',text:hosts.length?'Choose a Pi':'Add a Pi first'}));
+      hosts.forEach(function(x){n.rt.hs.appendChild(h('option',{value:String(x.id),text:HOSTS[x.type].title+' #'+x.id}))});
+      n.rt.hs.value=n.props.host==null?'':String(n.props.host);
+    }
+    var hn=NM[n.props.host];EL[n.id].sub.textContent=hn?'on '+HOSTS[hn.type].short+' #'+hn.id:'no Pi';
+  }});
+/* ---------- mock camera: test without a Pi ---------- */
+var MOCK_PY=["\"\"\"Mock camera and buttons, so this project can be tested on a computer with no Pi.", "", "Does nothing unless you turn it on:", "    SANDBOX_MOCK=1 python3 controls.py", "", "What it stands in for (the same module names the real project uses):", "  picamera2 / picamera2.encoders   Picamera2, H264Encoder", "  subprocess.run(['fswebcam', ...])   USB cameras", "  gpiozero                          switched to its built-in mock pins", "", "Needs only: pip install gpiozero pillow", "Photos it makes are generated test pictures, not real camera output.", "\"\"\"", "import os", "import subprocess", "import sys", "import threading", "import time", "import types", "", "ACTIVE = os.environ.get('SANDBOX_MOCK') == '1'", "_frames = 0", "", "", "def make_frame(size=(1280, 720)):", "    \"\"\"A test picture: sky, ground, a sun that moves, and the frame number and time.\"\"\"", "    global _frames", "    from PIL import Image, ImageDraw, ImageFont", "    _frames += 1", "    w, h = size", "    img = Image.new('RGB', size)", "    d = ImageDraw.Draw(img)", "    shift = (_frames * 37) % 90", "    horizon = int(h * 0.62)", "    for y in range(horizon):", "        k = y / horizon", "        d.line([(0, y), (w, y)], fill=(int(70 + 90 * k), int(120 + 60 * k + shift / 3), int(220 - 40 * k)))", "    d.rectangle([0, horizon, w, h], fill=(60 + shift // 3, 120, 60))", "    r = h // 9", "    cx = int(w * (0.15 + 0.7 * (((_frames * 0.13) % 1))))", "    d.ellipse([cx - r, int(h * 0.2) - r, cx + r, int(h * 0.2) + r], fill=(255, 217, 102))", "    try:", "        font = ImageFont.load_default(size=max(14, h // 18))", "    except TypeError:", "        font = ImageFont.load_default()", "    d.text((24, 20), 'MOCK CAMERA  frame %d' % _frames, fill='white', font=font)", "    d.text((24, h - 50), time.strftime('%Y-%m-%d %H:%M:%S'), fill='white', font=font)", "    d.rectangle([0, 0, w - 1, h - 1], outline='white', width=3)", "    return img", "", "", "def _save(path):", "    folder = os.path.dirname(path)", "    if folder:", "        os.makedirs(folder, exist_ok=True)", "    make_frame().save(path)", "    print('[mock camera] saved', path)", "", "", "class H264Encoder:", "    def __init__(self, bitrate=None, *args, **kwargs):", "        self.bitrate = bitrate", "", "", "class Picamera2:", "    \"\"\"Same method names as the real picamera2 library. Only what this project uses.\"\"\"", "", "    def __init__(self, camera_num=0, *args, **kwargs):", "        self.camera_num = camera_num", "        self.started = False", "        self._output = None", "", "    def create_still_configuration(self, *args, **kwargs):", "        return {}", "", "    def create_preview_configuration(self, *args, **kwargs):", "        return {}", "", "    def create_video_configuration(self, *args, **kwargs):", "        return {}", "", "    def configure(self, config=None):", "        pass", "", "    def start(self, *args, **kwargs):", "        self.started = True", "", "    def stop(self):", "        self.started = False", "", "    def close(self):", "        self.started = False", "", "    def capture_file(self, name, *args, **kwargs):", "        _save(name)", "", "    def start_and_capture_file(self, name='test.jpg', *args, **kwargs):", "        self.start()", "        _save(name)", "", "    def capture_image(self, name='main'):", "        return make_frame()", "", "    def capture_array(self, name='main'):", "        import numpy", "        return numpy.asarray(make_frame())", "", "    def start_recording(self, encoder, output, *args, **kwargs):", "        self._output = output", "        with open(output, 'wb') as f:", "            f.write(b'MOCK VIDEO - not a real recording\\n')", "        print('[mock camera] recording to', output)", "", "    def stop_recording(self):", "        print('[mock camera] stopped recording', self._output)", "        self._output = None", "", "", "def _install_camera():", "    picam = types.ModuleType('picamera2')", "    picam.Picamera2 = Picamera2", "    enc = types.ModuleType('picamera2.encoders')", "    enc.H264Encoder = H264Encoder", "    picam.encoders = enc", "    sys.modules['picamera2'] = picam", "    sys.modules['picamera2.encoders'] = enc", "", "    real_run = subprocess.run", "", "    def run(args, *a, **kw):", "        if isinstance(args, (list, tuple)) and args and args[0] == 'fswebcam':", "            _save(str(args[-1]))", "            return subprocess.CompletedProcess(args, 0)", "        return real_run(args, *a, **kw)", "", "    subprocess.run = run", "", "", "HELP = \"\"\"", "[mock] Pretend buttons. Type a GPIO number and press Enter to press it.", "       hold 17        hold GPIO 17 down for 1.5 seconds", "       hold 17 3.2    hold it for 3.2 seconds", "       pins           list the pins this project uses", "       q              quit\"\"\"", "", "", "def _pins():", "    from gpiozero import Device", "    return Device.pin_factory", "", "", "def _press(num, secs=0.15):", "    pin = _pins().pin(num)", "    active_low = pin.pull == 'up'", "    (pin.drive_low if active_low else pin.drive_high)()", "    time.sleep(secs)", "    (pin.drive_high if active_low else pin.drive_low)()", "", "", "def _console():", "    time.sleep(1.0)", "    print(HELP)", "    for line in sys.stdin:", "        w = line.split()", "        if not w:", "            continue", "        try:", "            if w[0] == 'q':", "                os._exit(0)", "            elif w[0] == 'pins':", "                print('[mock] pins in use:', sorted(p for p in _pins().pins if isinstance(p, int)) or 'none yet')", "            elif w[0] == 'hold':", "                _press(int(w[1]), float(w[2]) if len(w) > 2 else 1.5)", "            else:", "                _press(int(w[0]))", "        except Exception as e:", "            print('[mock] could not do that:', e)", "", "", "if ACTIVE:", "    os.environ.setdefault('GPIOZERO_PIN_FACTORY', 'mock')", "    _install_camera()", "    print('[mock] ON: fake camera and fake buttons. Nothing here touches real hardware.')", "    if sys.stdin and sys.stdin.isatty():", "        threading.Thread(target=_console, daemon=True).start()"].join('\n');
+var MOCKSHOT={};
+function genMockCamera(){return MOCK_PY}
+/* simulator: a Take photo action on a camera adds a mock frame to the library (or counts it) */
+function simFire(n){
+  var tg=actionTarget(n);if(!tg||tg.a.id!=='photo'||!/^p_(cam|hq|usbcam)/.test(tg.own.type))return;
+  var hn=NM[n.props.host];if(!hn)return;
+  MOCKSHOT[hn.id]=(MOCKSHOT[hn.id]||0)+1;n.rt.mock=MOCKSHOT[hn.id];
+  var lib=libFor(hn);
+  if(lib){var m=lib.props.sim=lib.props.sim||{count:0,index:0};m.count=(Number(m.count)||0)+1;m.index=m.count}
+}
+/* ---------- safe svg ---------- */
+var SVGNS='http://www.w3.org/2000/svg';
+var OKT={g:1,path:1,circle:1,ellipse:1,rect:1,line:1,polyline:1,polygon:1,text:1,tspan:1};
+var OKA=/^(x|y|x1|x2|y1|y2|cx|cy|r|rx|ry|d|points|width|height|fill|stroke|stroke-width|stroke-linecap|stroke-linejoin|stroke-dasharray|opacity|fill-opacity|stroke-opacity|transform|font-size|text-anchor|font-family|font-weight|dx|dy)$/;
+function cleanSvg(str){
+  var doc=new DOMParser().parseFromString('<svg xmlns="'+SVGNS+'">'+str+'</svg>','image/svg+xml');
+  if(doc.getElementsByTagName('parsererror').length)throw new Error('Invalid SVG');
+  var holder=document.createElementNS(SVGNS,'g');
+  (function walk(src,dst){
+    Array.prototype.forEach.call(src.childNodes,function(c){
+      if(c.nodeType===3){dst.appendChild(document.createTextNode(c.nodeValue));return}
+      if(c.nodeType!==1||!OKT[c.localName])return;
+      var e=document.createElementNS(SVGNS,c.localName);
+      Array.prototype.forEach.call(c.attributes,function(a){if(OKA.test(a.name))e.setAttribute(a.name,a.value)});
+      walk(c,e);dst.appendChild(e);
+    });
+  })(doc.documentElement,holder);
+  return holder;
+}
+
+/* ---------- graph model ---------- */
+function uid(){return P.seq++}
+function mkNode(type,x,y,props){
+  var T=TY[type],n={id:uid(),type:type,x:x,y:y,props:Object.assign(T.props?T.props():{},props||{}),rt:{}};
+  n.w=T.w||200;return n;
+}
+function serP(p){
+  return{id:p.id,name:p.name,seq:p.seq,view:p.view,
+    nodes:p.nodes.map(function(n){return{id:n.id,type:n.type,x:n.x,y:n.y,props:n.props}}),wires:p.wires};
+}
+function hydrate(p){
+  p.nodes=(p.nodes||[]).filter(function(n){return TY[n.type]});
+  p.nodes.forEach(function(n){n.rt={};n.w=TY[n.type].w||200;n.props=Object.assign(TY[n.type].props?TY[n.type].props():{},n.props||{})});
+  var ids={};p.nodes.forEach(function(n){ids[n.id]=1});
+  p.wires=(p.wires||[]).filter(function(w){return ids[w.from.n]&&ids[w.to.n]});
+  p.view=p.view||{x:20,y:20,k:.8};p.seq=p.seq||(p.nodes.reduce(function(m,n){return Math.max(m,n.id)},0)+p.wires.reduce(function(m,w){return Math.max(m,w.id||0)},0)+1);
+  return p;
+}
+function idx(list,name){for(var i=0;i<list.length;i++)if(list[i].n===name)return i;return -1}
+function link(a,o,b,i){P.wires.push({id:uid(),from:{n:a.id,p:idx(TY[a.type].outs,o)},to:{n:b.id,p:idx(TY[b.type].ins,i)}})}
+function seed(){
+  P={id:'p'+Date.now().toString(36),name:'Welcome',seq:1,view:{x:16,y:16,k:.75},nodes:[],wires:[]};
+  var z=mkNode('zero2',30,30),ps=mkNode('ps',30,300,{mount:null}),ek=mkNode('eink',320,30);
+  ps.props.mount=z.id;ek.props.mount=z.id;
+  var sz=mkNode('slider',30,600,{label:'size',min:10,max:55,step:1,value:40}),sd=mkNode('slider',30,780,{label:'sides',min:3,max:12,step:1,value:6});
+  var pad=mkNode('svgpad',300,600),cd=mkNode('code',590,600,{body:'return Math.round(b * 2 * a * Math.sin(Math.PI / b)) + " mm"'}),ro=mkNode('readout',590,860);
+  var nt=mkNode('note',590,30,{v:'Welcome. The Pi Zero 2 has an e-ink HAT and a PiSugar mounted. Open the e-ink node for its layout and scripts. Below, two sliders drive an SVG pad and a perimeter calculation.'});
+  [z,ps,ek,sz,sd,pad,cd,ro,nt].forEach(function(n){P.nodes.push(n)});
+  link(ps,'battery',ek,'in1');link(z,'cpu C',ek,'in2');
+  link(sd,'value',pad,'a');link(sz,'value',pad,'b');link(sz,'value',cd,'a');link(sd,'value',cd,'b');link(cd,'out',ro,'in');
+  return P;
+}
+
+/* ---------- evaluation ---------- */
+function evalNode(n){
+  if(cache[n.id])return cache[n.id];
+  if(visiting[n.id])return null;
+  visiting[n.id]=1;
+  var T=TY[n.type];
+  var ins=T.ins.map(function(p,i){
+    var w=INW[n.id+':'+i];
+    if(w){if(T.sink)return undefined;var s=NM[w.from.n],so=s&&evalNode(s);return so?so.outs[w.from.p]:undefined}
+    var d=n.props.def&&n.props.def[p.n];return d===undefined?p.d:d;
+  });
+  var outs=[],err=null;
+  try{outs=T.ev?T.ev(n,ins):[]}catch(e){err=String(e&&e.message||e);outs=[]}
+  delete visiting[n.id];
+  cache[n.id]={ins:ins,outs:outs,err:err};
+  return cache[n.id];
+}
+function fillIns(n){
+  var c=cache[n.id];if(!c)return;
+  TY[n.type].ins.forEach(function(p,i){var w=INW[n.id+':'+i];if(w){var s=NM[w.from.n],so=s&&evalNode(s);c.ins[i]=so?so.outs[w.from.p]:undefined}});
+}
+function refresh(){
+  cache={};visiting={};NM={};INW={};
+  P.nodes.forEach(function(n){NM[n.id]=n});
+  P.wires.forEach(function(w){INW[w.to.n+':'+w.to.p]=w});
+  P.nodes.forEach(evalNode);
+  P.nodes.forEach(function(n){if(TY[n.type].sink)fillIns(n)});
+  P.nodes.forEach(updNode);
+  if(SH&&SH.refresh)SH.refresh();
+  if(CON&&CON.open)renderConsole();
+}
+function updNode(n){
+  var el=EL[n.id],ev=cache[n.id],T=TY[n.type];if(!el||!ev)return;
+  el.rows.forEach(function(r,i){
+    if(r.ov){r.ov.textContent=T.outs[i]?fmt(ev.outs[i]):''}
+    if(r.row)r.row.classList.toggle('wired',!!INW[n.id+':'+i]);
+  });
+  el.err.textContent=ev.err||'';
+  if(T.upd)try{T.upd(n,el,ev)}catch(e){el.err.textContent=String(e.message||e)}
+}
+function reaches(a,b){
+  var seen={},st=[a];
+  while(st.length){var x=st.pop();if(x===b)return true;if(seen[x])continue;seen[x]=1;P.wires.forEach(function(w){if(w.from.n===x&&!(TY[NM[w.to.n]?NM[w.to.n].type:'']||{}).sink)st.push(w.to.n)})}
+  return false;
+}
+function compat(ot,it){
+  if(ot===it||ot==='any'||it==='any')return true;
+  if((ot==='num'&&it==='bool')||(ot==='bool'&&it==='num'))return true;
+  if(it==='text')return true;
+  return false;
+}
+
+/* ---------- history, saving ---------- */
+function snap(){return JSON.stringify({nodes:serP(P).nodes,wires:P.wires,seq:P.seq})}
+function commitNow(){
+  clearTimeout(commitT);
+  var s=snap();if(s===hist[hi]){saveSoon();return}
+  hist.splice(hi+1);hist.push(s);if(hist.length>80)hist.shift();hi=hist.length-1;
+  btnState();saveSoon();
+}
+function changed(){clearTimeout(commitT);commitT=setTimeout(commitNow,600);saveSoon()}
+function touch(n){refresh();changed()}
+function restore(s){
+  var o=JSON.parse(s);P.nodes=o.nodes;P.wires=o.wires;P.seq=o.seq;hydrate(P);sel=null;renderAll();
+}
+function undo(){if(hi>0){hi--;restore(hist[hi]);btnState();saveSoon()}}
+function redo(){if(hi<hist.length-1){hi++;restore(hist[hi]);btnState();saveSoon()}}
+function btnState(){$('#btnUndo').disabled=hi<=0;$('#btnRedo').disabled=hi>=hist.length-1}
+function saveSoon(){clearTimeout(saveT);saveT=setTimeout(save,300)}
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify({v:1,cur:S.cur,projects:S.projects.map(serP)}))}
+  catch(e){if(!save.warned){save.warned=1;toast("Couldn't save in this browser. Export to keep your work.")}}
+}
+function load(){
+  var raw=null;try{raw=localStorage.getItem(KEY)}catch(e){}
+  if(raw){try{var o=JSON.parse(raw);if(o&&o.projects&&o.projects.length){S={cur:o.cur,projects:o.projects.map(hydrate)};return}}catch(e){}}
+  S={cur:null,projects:[]};
+  var p=seed();hydrate(p);S.projects.push(p);S.cur=p.id;
+}
+function setProject(id){
+  var p=S.projects.filter(function(x){return x.id===id})[0]||S.projects[0];
+  P=p;S.cur=p.id;sel=null;hist=[];hi=-1;closeSheet();renderAll();commitNow();projList();
+}
+function projList(){
+  var s=$('#projSel');s.innerHTML='';
+  S.projects.forEach(function(p){s.appendChild(h('option',{value:p.id,text:p.name}))});
+  s.value=P.id;
+}
+
+/* ---------- rendering ---------- */
+var world=$('#world'),vp=$('#vp'),wsvg=$('#wires');
+function renderAll(){
+  Array.prototype.slice.call(world.querySelectorAll('.node')).forEach(function(e){e.remove()});
+  EL={};NM={};P.nodes.forEach(function(n){NM[n.id]=n});
+  P.nodes.forEach(buildNode);
+  applyView();refresh();drawWires();updSel();btnState();
+}
+function portEl(n,kind,i,t){
+  var p=h('i',{class:'port '+kind,'data-n':n.id,'data-k':kind,'data-i':i});
+  p.style.setProperty('--pc',TC[t]);return p;
+}
+function buildNode(n){
+  var T=TY[n.type];
+  var root=h('div',{class:'node cat-'+T.cat,'data-id':n.id});
+  root.style.left=n.x+'px';root.style.top=n.y+'px';root.style.width=n.w+'px';
+  var head=h('div',{class:'nhead'},[h('span',{class:'ntitle',text:T.title}),h('span',{class:'nsub'})]);
+  root.appendChild(head);
+  var rowsW=h('div',{class:'nrows'}),rows=[],nr=Math.max(T.ins.length,T.outs.length);
+  for(var i=0;i<nr;i++){(function(i){
+    var row=h('div',{class:'row'}),L=h('span',{class:'rl'}),R=h('span',{class:'rr'}),rec={row:row};
+    var pi=T.ins[i],po=T.outs[i];
+    if(pi){
+      row.appendChild(portEl(n,'in',i,pi.t));
+      L.appendChild(h('span',{text:pi.n}));
+      var cur=n.props.def&&n.props.def[pi.n];if(cur===undefined)cur=pi.d;
+      var dv=null;
+      if(pi.t==='bool'){dv=h('input',{type:'checkbox',class:'dv'});dv.checked=!!cur;dv.style.width='auto';
+        dv.addEventListener('input',function(){n.props.def=n.props.def||{};n.props.def[pi.n]=dv.checked;touch(n)})}
+      else{dv=h('input',{type:pi.t==='num'?'number':'text',class:'dv'});if(pi.t==='num')dv.step='any';dv.value=cur==null?'':cur;
+        dv.addEventListener('input',function(){
+          n.props.def=n.props.def||{};var v=dv.value;
+          if(pi.t==='num')v=v===''?0:parseFloat(v);else if(pi.t==='any'&&v!==''&&!isNaN(Number(v)))v=Number(v);
+          n.props.def[pi.n]=v;touch(n);
+        })}
+      L.appendChild(dv);
+    }
+    if(po){
+      rec.ov=h('span',{class:'ov'});R.appendChild(rec.ov);R.appendChild(h('span',{text:po.n}));
+      row.appendChild(portEl(n,'out',i,po.t));
+    }
+    row.appendChild(L);row.appendChild(R);rowsW.appendChild(row);rows.push(rec);
+  })(i)}
+  root.appendChild(rowsW);
+  var body=h('div',{class:'nbody'});root.appendChild(body);
+  var err=h('div',{class:'err'});root.appendChild(err);
+  EL[n.id]={root:root,head:head,rows:rows,body:body,err:err,sub:head.querySelector('.nsub')};
+  if(T.body)T.body(n,body,EL[n.id]);
+  world.appendChild(root);
+}
+function pp(n,k,i){return{x:n.x+(k==='in'?0:n.w),y:n.y+HEAD+i*ROW+ROW/2}}
+function bez(p,q){var dx=Math.max(40,Math.abs(q.x-p.x)/2);return'M'+p.x+' '+p.y+' C'+(p.x+dx)+' '+p.y+' '+(q.x-dx)+' '+q.y+' '+q.x+' '+q.y}
+function drawWires(){
+  var s='';
+  P.nodes.forEach(function(n){
+    if(isAddon(n)&&n.props.mount&&NM[n.props.mount]){
+      var m=NM[n.props.mount];
+      s+='<path class="mline" d="M'+(n.x+n.w/2)+' '+(n.y+16)+' L'+(m.x+m.w/2)+' '+(m.y+16)+'"/>';
+    }
+  });
+  P.wires.forEach(function(w){
+    var a=NM[w.from.n],b=NM[w.to.n];if(!a||!b)return;
+    var d=bez(pp(a,'out',w.from.p),pp(b,'in',w.to.p)),t=TY[a.type].outs[w.from.p].t;
+    var on=sel&&sel.k==='w'&&sel.id===w.id;
+    s+='<path class="wire'+(on?' sel':'')+'" d="'+d+'" stroke="'+TC[t]+'"/><path class="whit" data-w="'+w.id+'" d="'+d+'"/>';
+  });
+  wsvg.innerHTML=s;
+}
+function applyView(){
+  var v=P.view;world.style.transform='translate('+v.x+'px,'+v.y+'px) scale('+v.k+')';
+  vp.style.backgroundPosition=v.x+'px '+v.y+'px';vp.style.backgroundSize=(24*v.k)+'px '+(24*v.k)+'px';
+  drawMini();
+}
+function bounds(){
+  if(!P.nodes.length)return null;
+  var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  P.nodes.forEach(function(n){var el=EL[n.id],hh=el?el.root.offsetHeight:120;x0=Math.min(x0,n.x);y0=Math.min(y0,n.y);x1=Math.max(x1,n.x+n.w);y1=Math.max(y1,n.y+hh)});
+  return{x0:x0,y0:y0,x1:x1,y1:y1};
+}
+function fitView(){
+  var b=bounds(),r=vp.getBoundingClientRect();if(!b||!r.width)return;
+  var pad=30,k=clamp(Math.min((r.width-pad*2)/(b.x1-b.x0),(r.height-pad*2)/(b.y1-b.y0)),.3,1.1);
+  P.view.k=k;P.view.x=(r.width-(b.x1-b.x0)*k)/2-b.x0*k;P.view.y=(r.height-(b.y1-b.y0)*k)/2-b.y0*k;
+  applyView();saveSoon();
+}
+var mini=$('#mini'),mctx=mini.getContext&&mini.getContext('2d'),mmap=null;
+function drawMini(){
+  if(!mctx)return;
+  var b=bounds();mini.style.display=b?'block':'none';if(!b)return;
+  var r=vp.getBoundingClientRect(),v=P.view;
+  var vx0=-v.x/v.k,vy0=-v.y/v.k,vx1=vx0+r.width/v.k,vy1=vy0+r.height/v.k;
+  var x0=Math.min(b.x0,vx0),y0=Math.min(b.y0,vy0),x1=Math.max(b.x1,vx1),y1=Math.max(b.y1,vy1);
+  var W=mini.width,H=mini.height,s=Math.min((W-8)/(x1-x0),(H-8)/(y1-y0)),ox=(W-(x1-x0)*s)/2-x0*s,oy=(H-(y1-y0)*s)/2-y0*s;
+  mmap={s:s,ox:ox,oy:oy};
+  var cs=getComputedStyle(document.documentElement);
+  mctx.clearRect(0,0,W,H);
+  P.nodes.forEach(function(n){var el=EL[n.id],hh=el?el.root.offsetHeight:100;mctx.fillStyle=cs.getPropertyValue('--'+TY[n.type].cat).trim()||'#888';mctx.fillRect(n.x*s+ox,n.y*s+oy,Math.max(3,n.w*s),Math.max(3,hh*s))});
+  mctx.strokeStyle=cs.getPropertyValue('--text').trim()||'#000';mctx.lineWidth=2;mctx.strokeRect(vx0*s+ox,vy0*s+oy,(vx1-vx0)*s,(vy1-vy0)*s);
+}
+mini.addEventListener('pointerdown',function(e){
+  if(!mmap)return;e.stopPropagation();
+  var r=mini.getBoundingClientRect(),px=(e.clientX-r.left)/r.width*mini.width,py=(e.clientY-r.top)/r.height*mini.height;
+  var wx=(px-mmap.ox)/mmap.s,wy=(py-mmap.oy)/mmap.s,vr=vp.getBoundingClientRect();
+  P.view.x=vr.width/2-wx*P.view.k;P.view.y=vr.height/2-wy*P.view.k;applyView();saveSoon();
+});
+
+/* ---------- selection ---------- */
+function select(s){sel=s;updSel();drawWires()}
+function updSel(){
+  P.nodes.forEach(function(n){var el=EL[n.id];if(el)el.root.classList.toggle('sel',!!(sel&&sel.k==='n'&&sel.id===n.id))});
+  var bar=$('#selbar');bar.innerHTML='';
+  if(sel){
+    bar.classList.add('show');
+    if(sel.k==='n')bar.appendChild(h('button',{class:'btn',text:'Duplicate',onclick:dupSel}));
+    bar.appendChild(h('button',{class:'btn',text:sel.k==='n'?'Delete block':'Delete wire',onclick:delSel}));
+    bar.appendChild(h('button',{class:'btn',text:'Done',onclick:function(){select(null)}}));
+  }else bar.classList.remove('show');
+}
+function delSel(){
+  if(!sel)return;
+  if(sel.k==='w')P.wires=P.wires.filter(function(w){return w.id!==sel.id});
+  else{
+    var id=sel.id;
+    P.nodes=P.nodes.filter(function(n){return n.id!==id});
+    P.wires=P.wires.filter(function(w){return w.from.n!==id&&w.to.n!==id});
+    P.nodes.forEach(function(n){if(n.props.mount===id)n.props.mount=null});
+    var el=EL[id];if(el)el.root.remove();delete EL[id];
+  }
+  sel=null;refresh();drawWires();updSel();commitNow();
+}
+function dupSel(){
+  if(!sel||sel.k!=='n')return;
+  var o=NM[sel.id],c=mkNode(o.type,o.x+30,o.y+30,JSON.parse(JSON.stringify(o.props)));
+  if('mount' in c.props)c.props.mount=null;
+  P.nodes.push(c);NM[c.id]=c;buildNode(c);select({k:'n',id:c.id});refresh();commitNow();
+}
+function addNode(type){
+  var r=vp.getBoundingClientRect(),v=P.view;
+  var cx=(r.width/2-v.x)/v.k-100+(Math.random()*40-20),cy=(r.height/2-v.y)/v.k-60+(Math.random()*40-20);
+  var n=mkNode(type,Math.round(cx/4)*4,Math.round(cy/4)*4);
+  P.nodes.push(n);NM[n.id]=n;buildNode(n);refresh();select({k:'n',id:n.id});commitNow();closeSheet();drawMini();return n;
+}
+
+/* ---------- pointer interaction ---------- */
+var PT={},D=null,pin=null;
+function toWorld(cx,cy){var r=vp.getBoundingClientRect();return{x:(cx-r.left-P.view.x)/P.view.k,y:(cy-r.top-P.view.y)/P.view.k}}
+function ptList(){return Object.keys(PT).map(function(k){return PT[k]})}
+vp.addEventListener('pointerdown',function(e){
+  var t=e.target;
+  if(t.closest('canvas#mini'))return;
+  if(t.closest('input,textarea,select,button,label')&&!t.closest('.port'))return;
+  PT[e.pointerId]={x:e.clientX,y:e.clientY};
+  var ids=Object.keys(PT);
+  if(ids.length===2){
+    var a=ptList(),d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
+    pin={d:d||1,k:P.view.k,c:{x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2},vx:P.view.x,vy:P.view.y};
+    if(D&&D.type==='wire')endWire(null);
+    D=null;return;
+  }
+  var port=t.closest('.port'),head=t.closest('.nhead'),node=t.closest('.node'),wh=t.closest('.whit');
+  try{vp.setPointerCapture(e.pointerId)}catch(x){}
+  if(port){
+    var n=NM[port.getAttribute('data-n')],k=port.getAttribute('data-k'),i=parseInt(port.getAttribute('data-i'),10),from;
+    if(k==='in'){
+      var w=INW[n.id+':'+i];
+      if(w){from={n:w.from.n,p:w.from.p,k:'out'};P.wires=P.wires.filter(function(q){return q.id!==w.id});refresh();drawWires()}
+      else from={n:n.id,p:i,k:'in'};
+    }else from={n:n.id,p:i,k:'out'};
+    D={type:'wire',from:from};markCands();moveWire(e);return;
+  }
+  if(head&&node){
+    var nn=NM[node.getAttribute('data-id')];select({k:'n',id:nn.id});
+    D={type:'node',n:nn,sx:e.clientX,sy:e.clientY,ox:nn.x,oy:nn.y,moved:false};return;
+  }
+  if(wh){select({k:'w',id:parseInt(wh.getAttribute('data-w'),10)});D={type:'tap'};return}
+  if(node){select({k:'n',id:parseInt(node.getAttribute('data-id'),10)});D={type:'tap'};return}
+  D={type:'pan',sx:e.clientX,sy:e.clientY,vx:P.view.x,vy:P.view.y,moved:false};
+});
+vp.addEventListener('pointermove',function(e){
+  if(PT[e.pointerId]){PT[e.pointerId].x=e.clientX;PT[e.pointerId].y=e.clientY}
+  if(pin&&Object.keys(PT).length>=2){
+    var a=ptList(),d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),m={x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2};
+    var r=vp.getBoundingClientRect(),nk=clamp(pin.k*d/pin.d,.3,1.6),wx=(pin.c.x-r.left-pin.vx)/pin.k,wy=(pin.c.y-r.top-pin.vy)/pin.k;
+    P.view.k=nk;P.view.x=(m.x-r.left)-wx*nk;P.view.y=(m.y-r.top)-wy*nk;applyView();return;
+  }
+  if(!D)return;
+  if(D.type==='node'){
+    var dx=(e.clientX-D.sx)/P.view.k,dy=(e.clientY-D.sy)/P.view.k;
+    if(Math.abs(dx)+Math.abs(dy)>2)D.moved=true;
+    D.n.x=Math.round((D.ox+dx)/4)*4;D.n.y=Math.round((D.oy+dy)/4)*4;
+    var el=EL[D.n.id].root;el.style.left=D.n.x+'px';el.style.top=D.n.y+'px';drawWires();drawMini();
+  }else if(D.type==='pan'){
+    var mx=e.clientX-D.sx,my=e.clientY-D.sy;if(Math.abs(mx)+Math.abs(my)>3)D.moved=true;
+    P.view.x=D.vx+mx;P.view.y=D.vy+my;applyView();
+  }else if(D.type==='wire')moveWire(e);
+});
+function pend(e){
+  delete PT[e.pointerId];
+  if(Object.keys(PT).length<2&&pin){pin=null;saveSoon();return}
+  if(!D)return;
+  if(D.type==='node'&&D.moved)commitNow();
+  else if(D.type==='pan'){if(!D.moved)select(null);else saveSoon()}
+  else if(D.type==='wire')endWire(e);
+  D=null;
+}
+vp.addEventListener('pointerup',pend);
+vp.addEventListener('pointercancel',function(e){if(D&&D.type==='wire')endWire(null);delete PT[e.pointerId];D=null;pin=null});
+vp.addEventListener('wheel',function(e){
+  e.preventDefault();
+  var r=vp.getBoundingClientRect(),nk=clamp(P.view.k*Math.exp(-e.deltaY*.0015),.3,1.6),cx=e.clientX-r.left,cy=e.clientY-r.top;
+  var wx=(cx-P.view.x)/P.view.k,wy=(cy-P.view.y)/P.view.k;P.view.k=nk;P.view.x=cx-wx*nk;P.view.y=cy-wy*nk;applyView();saveSoon();
+},{passive:false});
+
+function portType(nid,k,i){var T=TY[NM[nid].type];return k==='out'?T.outs[i].t:T.ins[i].t}
+function canLink(from,pn,pk,pi){
+  if(pn===from.n||pk===from.k)return false;
+  var o=from.k==='out'?{n:from.n,i:from.p}:{n:pn,i:pi},i=from.k==='out'?{n:pn,i:pi}:{n:from.n,i:from.p};
+  return compat(portType(o.n,'out',o.i),portType(i.n,'in',i.i));
+}
+function markCands(){
+  Array.prototype.forEach.call(vp.querySelectorAll('.port'),function(p){
+    var ok=canLink(D.from,parseInt(p.getAttribute('data-n'),10),p.getAttribute('data-k'),parseInt(p.getAttribute('data-i'),10));
+    p.classList.toggle('cand',ok);p.classList.remove('near');
+  });
+}
+function nearestPort(cx,cy){
+  var best=null,bd=40;
+  Array.prototype.forEach.call(vp.querySelectorAll('.port.cand'),function(p){
+    var r=p.getBoundingClientRect(),d=Math.hypot(r.left+r.width/2-cx,r.top+r.height/2-cy);
+    if(d<bd){bd=d;best=p}
+  });
+  return best;
+}
+function moveWire(e){
+  var a=NM[D.from.n],p=pp(a,D.from.k,D.from.p),q=toWorld(e.clientX,e.clientY);
+  var np=nearestPort(e.clientX,e.clientY);
+  Array.prototype.forEach.call(vp.querySelectorAll('.port.near'),function(x){x.classList.remove('near')});
+  var tp=q;
+  if(np){np.classList.add('near');var nn=NM[np.getAttribute('data-n')];tp=pp(nn,np.getAttribute('data-k'),parseInt(np.getAttribute('data-i'),10))}
+  var t=portType(D.from.n,D.from.k,D.from.p);
+  var path=$('#tmpw');path.setAttribute('stroke',TC[t]);
+  path.setAttribute('d',D.from.k==='out'?bez(p,tp):bez(tp,p));
+}
+function endWire(e){
+  var np=e?nearestPort(e.clientX,e.clientY):null;
+  $('#tmpw').setAttribute('d','');
+  Array.prototype.forEach.call(vp.querySelectorAll('.port'),function(p){p.classList.remove('cand');p.classList.remove('near')});
+  if(!np){refresh();drawWires();commitNow();return}
+  var pn=parseInt(np.getAttribute('data-n'),10),pk=np.getAttribute('data-k'),pi=parseInt(np.getAttribute('data-i'),10);
+  var o=D.from.k==='out'?{n:D.from.n,p:D.from.p}:{n:pn,p:pi},i=D.from.k==='out'?{n:pn,p:pi}:{n:D.from.n,p:D.from.p};
+  if(!TY[NM[i.n].type].sink&&reaches(i.n,o.n)){toast('That would make a loop');refresh();drawWires();return}
+  P.wires=P.wires.filter(function(w){return !(w.to.n===i.n&&w.to.p===i.p)});
+  P.wires.push({id:uid(),from:o,to:i});
+  refresh();drawWires();commitNow();
+}
+
+/* ---------- sheet ---------- */
+function openSheet(title,build,onRefresh){
+  $('#shTitle').textContent=title;var b=$('#shBody');b.innerHTML='';
+  SH={refresh:null};build(b);SH.refresh=onRefresh||null;
+  $('#sheet').classList.add('open');$('#back').classList.add('open');b.scrollTop=0;
+}
+function closeSheet(){SH=null;$('#sheet').classList.remove('open');$('#back').classList.remove('open')}
+$('#shClose').addEventListener('click',closeSheet);
+$('#back').addEventListener('click',closeSheet);
+
+var PAL=[['Hardware','hw',['zero2','pi5','esp']],['Add-ons','hw',['eink','lcd','ps']],['Inputs','in',['slider','toggle','text','timer']],['Logic','logic',['math','compare','select','code','action']],['Storage','in',['photolib']],['View','view',['readout','svgpad','parts','note']]];
+function openPalette(){
+  openSheet('Add a block',function(b){
+    b.appendChild(h('button',{class:'btn pri',style:'display:block;width:100%;margin-bottom:6px',text:'Browse parts catalog',onclick:function(){openCatalog()}}));
+    b.appendChild(h('button',{class:'btn',style:'display:block;width:100%;margin-bottom:6px',text:'Next steps for this project',onclick:openIdeas}));
+    b.appendChild(h('button',{class:'btn',style:'display:block;width:100%;margin-bottom:6px',text:'Starter projects',onclick:openStarters}));
+    PAL.forEach(function(sec){
+      b.appendChild(h('div',{class:'sec',text:sec[0]}));
+      var g=h('div',{class:'grid2'});
+      sec[2].forEach(function(id){
+        var t=h('button',{class:'tile cat-'+TY[id].cat,onclick:function(){addNode(id)}},[h('b',{text:TY[id].title}),h('span',{text:TY[id].desc})]);
+        g.appendChild(t);
+      });
+      b.appendChild(g);
+    });
+  });
+}
+function openSpecs(n){
+  var T=HOSTS[n.type];
+  openSheet(T.title,function(b){
+    b.appendChild(h('div',{class:'sec',text:'About'}));
+    T.specs.forEach(function(s){b.appendChild(h('div',{class:'note',text:s}))});
+    b.appendChild(h('div',{class:'sec',text:'Parts you can add'}));
+    buildCatalog(b,n.type);
+  });
+}
+function openPins(n){
+  var T=HOSTS[n.type];
+  openSheet(T.title+' pins',function(b){
+    if(!T.pi){
+      b.appendChild(h('div',{class:'note',text:'This board has no 40-pin header. Add-ons are wired to any free GPIO, so there is nothing to collide.'}));
+      T.specs.forEach(function(s){b.appendChild(h('div',{class:'note',text:s}))});return;
+    }
+    var ad=mountedOn(n.id),claim={};
+    var lg=h('div',{class:'flex'});
+    ad.forEach(function(a,ai){
+      var col=CLAIM_COLORS[ai%4];
+      lg.appendChild(h('span',{class:'chipx'},[h('i',{class:'sw',style:'background:'+col}),ADDONS[a.type].title]));
+      claimsOf(a).forEach(function(c){claim[c.g]=claim[c.g]||[];claim[c.g].push({col:col,r:c.r,s:ADDONS[a.type].short,sh:c.sh})});
+    });
+    if(!ad.length)lg.appendChild(h('span',{class:'note',text:'No add-ons mounted. Pins are free.'}));
+    b.appendChild(lg);
+    b.appendChild(h('div',{class:'note',text:'Pin numbers follow the physical header, odd pins on the left. GPIO assignments for each add-on come from the manufacturer demos, so confirm them against the datasheet.'}));
+    var g=h('div',{class:'pins'});g.style.marginTop='12px';
+    for(var r=0;r<20;r++)[2*r,2*r+1].forEach(function(i){
+      var lbl=PINS[i],cls='pin',l1,l2='';
+      if(lbl==='3V3'||lbl==='5V'){cls+=' pw';l1=(i+1)+'  '+lbl}
+      else if(lbl==='GND'){cls+=' gd';l1=(i+1)+'  GND'}
+      else{var gp=parseInt(lbl,10);l1=(i+1)+'  GPIO'+gp+(ALT[gp]?' '+ALT[gp]:'');
+        var c=claim[gp];
+        if(c){cls+=' cl';l2=c.map(function(x){return x.s+' '+x.r}).join(' + ')}}
+      var cell=h('div',{class:cls},[h('span',{text:l1}),h('small',{text:l2})]);
+      if(claim[parseInt(lbl,10)]&&!isNaN(parseInt(lbl,10)))cell.style.background=claim[parseInt(lbl,10)][0].col;
+      g.appendChild(cell);
+    });
+    b.appendChild(g);
+  });
+}
+
+/* ---------- display tool: layout canvas + scripts ---------- */
+function dcfg(n){var A=ADDONS[n.type];return A&&A.layout?A.layout:{w:128,h:128,mono:false}}
+function inVals(n){var ev=cache[n.id];return ev?ev.ins:[]}
+function subst(s,ins){return String(s).replace(/\{in([1-3])\}/g,function(m,i){return fmt(ins[parseInt(i,10)-1])})}
+function paintDisplay(ctx,n,bbs,selIdx){
+  var c=dcfg(n),d=n.props.dsp,ins=inVals(n),mono=c.mono;
+  ctx.fillStyle=mono?(d.invert?'#000':'#fff'):d.bg;ctx.fillRect(0,0,c.w,c.h);
+  var fg=function(el){return mono?(d.invert?'#fff':'#000'):el.c};
+  d.els.forEach(function(el,i){
+    ctx.fillStyle=fg(el);ctx.strokeStyle=fg(el);ctx.lineWidth=1;
+    if(el.t==='text'){
+      ctx.font=(el.b?'bold ':'')+el.s+'px monospace';ctx.textBaseline='top';
+      var t=subst(el.v,ins);ctx.fillText(t,el.x,el.y);bbs[i]={x:el.x,y:el.y,w:ctx.measureText(t).width,h:el.s};
+    }else if(el.t==='icon'){
+      var onI=!el.when||truthy(ins[parseInt(el.when.slice(2),10)-1]);
+      ctx.globalAlpha=onI?1:0.2;drawIcon(ctx,el.name,el.x,el.y,el.s,fg(el));ctx.globalAlpha=1;
+      bbs[i]={x:el.x,y:el.y,w:el.s,h:el.s,rect:1,f:1};
+    }else if(el.t==='img'){
+      var gy=el.y+Math.round(el.h*0.62);
+      var hn0=hostOf(n),lib0=hn0&&libFor(hn0),seed=lib0?(el.src==='library'?(Number(lib0.props.sim&&lib0.props.sim.index)||0):(Number(lib0.props.sim&&lib0.props.sim.count)||0)):(hn0?(MOCKSHOT[hn0.id]||0):0);
+      var sunX=0.72,sky=mono?'#bbbbbb':'#6fa8dc';
+      if(seed){sunX=0.15+0.7*((seed*0.13)%1);if(!mono)sky='hsl('+((200+seed*37)%360)+',55%,62%)'}
+      ctx.fillStyle=sky;ctx.fillRect(el.x,el.y,el.w,el.h);
+      ctx.fillStyle=mono?'#555555':'#4a7c3a';ctx.fillRect(el.x,gy,el.w,el.y+el.h-gy);
+      ctx.fillStyle=mono?'#eeeeee':'#ffd966';ctx.beginPath();ctx.arc(el.x+el.w*sunX,el.y+el.h*0.28,Math.max(2,Math.min(el.w,el.h)*0.12),0,6.2832);ctx.fill();
+      if(seed&&el.w>=40){ctx.fillStyle=mono?'#000000':'#ffffff';ctx.font='8px monospace';ctx.textBaseline='top';ctx.fillText('#'+seed,el.x+3,el.y+3)}
+      ctx.strokeStyle=fg(el);ctx.strokeRect(el.x+.5,el.y+.5,el.w-1,el.h-1);
+      bbs[i]={x:el.x,y:el.y,w:el.w,h:el.h,rect:1,f:1};
+    }else if(el.t==='rect'){
+      if(el.f)ctx.fillRect(el.x,el.y,el.w,el.h);else ctx.strokeRect(el.x+.5,el.y+.5,el.w-1,el.h-1);
+      bbs[i]={x:el.x,y:el.y,w:el.w,h:el.h,rect:1,f:el.f};
+    }else{
+      ctx.beginPath();ctx.moveTo(el.x+.5,el.y+.5);ctx.lineTo(el.x2+.5,el.y2+.5);ctx.stroke();
+      bbs[i]={x:Math.min(el.x,el.x2),y:Math.min(el.y,el.y2),w:Math.abs(el.x2-el.x),h:Math.abs(el.y2-el.y),line:1,el:el};
+    }
+  });
+  if(mono&&ctx.getImageData){
+    var im=ctx.getImageData(0,0,c.w,c.h),p=im.data;
+    for(var i=0;i<p.length;i+=4){var v=p[i]<140?0:255;p[i]=p[i+1]=p[i+2]=v;p[i+3]=255}
+    ctx.putImageData(im,0,0);
+  }
+  if(selIdx!=null&&bbs[selIdx]){var b=bbs[selIdx];ctx.save();ctx.strokeStyle='#D85A30';ctx.setLineDash([3,2]);ctx.lineWidth=1;ctx.strokeRect(b.x-1.5,b.y-1.5,b.w+3,b.h+3);ctx.restore()}
+}
+function pyLit(v){
+  if(v===undefined||v===null)return 'None';
+  if(typeof v==='boolean')return v?'True':'False';
+  if(typeof v==='number')return isFinite(v)?String(v):'None';
+  return pyStr(v);
+}
+function pyStr(s){return "'"+String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n')+"'"}
+function pyF(s){
+  var has=/\{in[1-3]\}/.test(s),out='',re=/\{in([1-3])\}/g,last=0,m;
+  function esc(t){t=t.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n');return has?t.replace(/\{/g,'{{').replace(/\}/g,'}}'):t}
+  while((m=re.exec(s))){out+=esc(s.slice(last,m.index))+'{in'+m[1]+'}';last=re.lastIndex}
+  out+=esc(s.slice(last));return (has?'f':'')+"'"+out+"'";
+}
+function srcInfo(n,i){
+  var w=INW[n.id+':'+i];if(!w)return{kind:'def'};
+  var s=NM[w.from.n];
+  if(s.type==='ps'&&w.from.p===0)return{kind:'battery',from:s};
+  if((s.type==='zero2'||s.type==='pi5')&&w.from.p===0)return{kind:'cpu',from:s};
+  if(s.type==='photolib')return{kind:'photolib',from:s,p:w.from.p};
+  if(SENS[s.type]&&sensorLive(s,w.from.p))return{kind:'sensor',from:s,p:w.from.p};
+  return{kind:'snap',from:s};
+}
+function genScripts(n){
+  var host=hostOf(n),T=n.type,out=[];
+  if(!host)return{msg:'Mount this on a Pi in the node first. Scripts are generated for the host it is mounted on.'};
+  if(host.type==='esp')return{msg:'Scripts for the ESP32-S3 are not generated yet. The layout still works, and you can export it as a PNG.'};
+  var d=n.props.dsp,c=dcfg(n),ev=cache[n.id],mono=c.mono,pi5=host.type==='pi5';
+  var needBat=false,needCpu=false,assign=[],sens=[],usedIcons={};
+  for(var i=0;i<3;i++){
+    var si=srcInfo(n,i),nm='in'+(i+1);
+    if(si.kind==='battery'){needBat=true;assign.push(nm+' = battery_pct()')}
+    else if(si.kind==='cpu'){needCpu=true;assign.push(nm+' = cpu_temp()')}
+    else if(si.kind==='photolib'){sens.push({id:'lib',imp:['import photolib'],init:[],expr:'x'});assign.push(nm+' = photolib.'+['count','index','current_name'][si.p]+'()  # live from the photo library')}
+    else if(si.kind==='sensor'){var sx=sensorLive(si.from,si.p);sens.push(sx);assign.push(nm+' = '+sx.expr+'  # live from '+ADDONS[si.from.type].short)}
+    else if(si.kind==='snap')assign.push(nm+' = '+pyLit(ev.ins[i])+'  # from '+TY[si.from.type].title+' at export time')
+    else assign.push(nm+' = '+pyLit(ev.ins[i]));
+  }
+  var helpers=[];
+  if(needCpu)helpers.push('def cpu_temp():',"    with open('/sys/class/thermal/thermal_zone0/temp') as f:",'        return round(int(f.read()) / 1000, 1)','');
+  if(needBat)helpers.push('import socket','','def battery_pct():','    # needs pisugar-power-manager running (see docs.pisugar.com)',"    s = socket.create_connection(('127.0.0.1', 8423), timeout=2)","    s.sendall(b'get battery\\n')",'    reply = s.recv(64).decode()','    s.close()',"    return round(float(reply.split(':')[1]), 1)",'');
+  var seenS={};sens.forEach(function(x){if(seenS[x.id])return;seenS[x.id]=1;x.imp.forEach(function(l){if(helpers.indexOf(l)<0)helpers.push(l)})});
+  sens.forEach(function(x){x.init.forEach(function(l){if(helpers.indexOf(l)<0)helpers.push(l)})});
+  if(sens.length)helpers.push('');
+  var hasImg=d.els.some(function(e){return e.t==='img'}),hasLive=d.els.some(function(e){return e.t==='img'&&e.src==='live'});
+  var libN=host?libFor(host):null;
+  if(hasImg){
+    if(!libN)helpers.push('import glob','');else if(helpers.indexOf('import photolib')<0)helpers.push('import photolib','');
+    if(hasLive)helpers.push('from picamera2 import Picamera2','camera = Picamera2()','camera.start()','');
+    var pp=['def paste_photo(img, x, y, w, h, source):',"    if source == 'live':","        shot = camera.capture_image('main')",'    else:'];
+    if(libN)pp.push("        path = photolib.current_path() if source == 'library' else (photolib.photos() or [None])[-1]",'        if not path:','            return','        shot = Image.open(path)');
+    else pp.push("        photos = sorted(glob.glob('photo-*.jpg'))",'        if not photos:','            return','        shot = Image.open(photos[-1])');
+    pp.push("    shot = shot.convert('RGB').resize((w, h))","    img.paste(shot.convert('1') if img.mode == '1' else shot, (x, y))",'','');
+    pp.forEach(function(l){helpers.push(l)});
+  }
+  var bg=mono?(d.invert?'0':'255'):pyStr(d.bg),fgM=mono?(d.invert?'255':'0'):null;
+  function fgOf(el){return mono?fgM:pyStr(el.c)}
+  var els=[];
+  d.els.forEach(function(el){
+    if(el.t==='text')els.push('d.text(('+el.x+', '+el.y+'), '+pyF(el.v)+', font=font('+el.s+'), fill='+fgOf(el)+')');
+    else if(el.t==='icon'){usedIcons[el.name]=1;els.push((el.when?'if '+el.when+" not in (None, '', 0, False, 'false'): ":'')+'draw_icon(d, '+pyStr(el.name)+', '+el.x+', '+el.y+', '+el.s+', '+fgOf(el)+')')}
+    else if(el.t==='img')els.push('paste_photo(img, '+el.x+', '+el.y+', '+el.w+', '+el.h+', '+pyStr(el.src||'last')+')');
+    else if(el.t==='rect')els.push('d.rectangle(('+el.x+', '+el.y+', '+(el.x+el.w-1)+', '+(el.y+el.h-1)+'), outline='+fgOf(el)+', fill='+(el.f?fgOf(el):'None')+')');
+    else els.push('d.line(('+el.x+', '+el.y+', '+el.x2+', '+el.y2+'), fill='+fgOf(el)+')');
+  });
+  var iconNames=Object.keys(usedIcons);
+  if(iconNames.length){var imap={};iconNames.forEach(function(k){imap[k]=ICON_DEFS[k]});helpers.push('ICONS = '+JSON.stringify(imap),'');ICON_PY.forEach(function(l){helpers.push(l)})}
+  var setup,init,render,part,pre;
+  var apt=pi5?['sudo apt install -y python3-pil python3-numpy python3-spidev python3-gpiozero python3-rpi-lgpio git','# Pi 5: python3-rpi-lgpio replaces RPi.GPIO. Remove python3-rpi.gpio first if it is installed.']:['sudo apt install -y python3-pil python3-numpy python3-spidev python3-gpiozero git'];
+  var fnl=function(arr){return arr.join('\n')};
+  if(T==='eink'){
+    pre=['import sys',"sys.path.append('e-Paper/RaspberryPi_JetsonNano/python/lib')","PIC = 'e-Paper/RaspberryPi_JetsonNano/python/pic'",'from waveshare_epd import epd2in13_V4','from PIL import Image, ImageDraw, ImageFont','import time',''];
+    setup=fnl(['sudo raspi-config nonint do_spi 0','sudo apt update'].concat(apt,['git clone https://github.com/waveshare/e-Paper'],needBat?['# PiSugar battery readout needs the PiSugar power manager:','wget -O pisugar-power-manager.sh https://cdn.pisugar.com/release/pisugar-power-manager.sh','bash pisugar-power-manager.sh -c release']:[]));
+    init=fnl(pre.slice(0,4).concat(['','epd = epd2in13_V4.EPD()','epd.init()','epd.Clear(0xFF)','epd.sleep()']));
+    var frame=['def font(size):',"    return ImageFont.truetype(PIC + '/Font.ttc', size)",'','']
+      .concat(helpers,['def draw_frame():'],assign.map(function(a){return '    '+a}),["    img = Image.new('1', (epd.height, epd.width), "+bg+')','    d = ImageDraw.Draw(img)'],els.map(function(e){return '    '+e}),['    return img','','']);
+    render=fnl(pre.concat(frame,['epd = epd2in13_V4.EPD()','epd.init()','epd.display(epd.getbuffer(draw_frame()))','epd.sleep()']));
+    part=fnl(pre.concat(frame,['epd = epd2in13_V4.EPD()','epd.init()','epd.displayPartBaseImage(epd.getbuffer(draw_frame()))','','try:','    while True:','        time.sleep(10)','        epd.displayPartial(epd.getbuffer(draw_frame()))','except KeyboardInterrupt:','    epd.init()','    epd.sleep()']));
+    out=[{id:'setup',label:'Setup',file:'setup.sh',code:setup,note:'Run once on the Pi. Enables SPI and fetches the Waveshare driver.'},
+      {id:'init',label:'Init and clear',file:'init_clear.py',code:init,note:'Wipes the panel to white, then puts it to sleep.'},
+      {id:'render',label:'Render layout',file:'render.py',code:render,note:'Rebuilt from the canvas above every time you change it. Fonts use the Waveshare pic folder.'},
+      {id:'part',label:'Partial refresh',file:'partial_refresh.py',code:part,note:'Quick updates every 10 seconds. Do a full refresh now and then to clear ghosting, and always call sleep() when done. Wait between refreshes as the Waveshare docs recommend.'}];
+  }else if(T==='p_ssd1306'){
+    pre=['from luma.core.interface.serial import i2c','from luma.oled.device import ssd1306','from PIL import Image, ImageDraw, ImageFont','import time',''];
+    setup=fnl(['#!/bin/bash'].concat(setupLines([{A:ADDONS[T],on:function(l){return libOn(n,l)},host:host.type}])));
+    var fr2=['serial = i2c(port=1, address=0x3C)','device = ssd1306(serial)','','def font(size):',"    return ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', size)",'',''].concat(helpers,['def draw_frame():'],assign.map(function(a){return '    '+a}),["    img = Image.new('1', (device.width, device.height), "+bg+')','    d = ImageDraw.Draw(img)'],els.map(function(e){return '    '+e}),['    return img','','']);
+    render=fnl(pre.concat(fr2,['device.display(draw_frame())']));
+    var live=fnl(pre.concat(fr2,['while True:','    device.display(draw_frame())','    time.sleep(1)']));
+    out=[{id:'setup',label:'Setup',file:'setup.sh',code:setup,note:'Run once on the Pi. Turns on I2C and installs the selected libraries.'},
+      {id:'render',label:'Render layout',file:'render.py',code:render,note:'Draws the layout once. The I2C address is usually 0x3C. Change it if your module uses 0x3D.'},
+      {id:'live',label:'Live loop',file:'live.py',code:live,note:'Redraws every second, so wired values stay current.'}];
+  }else{
+    pre=['import sys',"sys.path.append('1.44inch-LCD-HAT-Code/RaspberryPi/python')   # adjust to where you unpacked the demo",'import LCD_1in44','from PIL import Image, ImageDraw, ImageFont',''];
+    setup=fnl(['sudo raspi-config nonint do_spi 0','sudo apt update'].concat(apt,['sudo apt install -y fonts-dejavu-core','sudo apt install -y p7zip-full','wget https://files.waveshare.com/upload/f/fa/1.44inch-LCD-HAT-Code.7z','7z x 1.44inch-LCD-HAT-Code.7z']));
+    init=fnl(pre.slice(0,3).concat(['','LCD = LCD_1in44.LCD()','LCD.LCD_Init(LCD_1in44.SCAN_DIR_DFT)','LCD.LCD_Clear()']));
+    var fr=['def font(size):',"    return ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', size)",'','']
+      .concat(helpers,['def draw_frame():'],assign.map(function(a){return '    '+a}),["    img = Image.new('RGB', (LCD.width, LCD.height), "+bg+')','    d = ImageDraw.Draw(img)'],els.map(function(e){return '    '+e}),['    return img','','']);
+    render=fnl(pre.concat(fr,['LCD = LCD_1in44.LCD()','LCD.LCD_Init(LCD_1in44.SCAN_DIR_DFT)','LCD.LCD_ShowImage(draw_frame(), 0, 0)']));
+    var liveL=fnl(['import time'].concat(pre,fr,['LCD = LCD_1in44.LCD()','LCD.LCD_Init(LCD_1in44.SCAN_DIR_DFT)','while True:','    LCD.LCD_ShowImage(draw_frame(), 0, 0)','    time.sleep(1)']));
+    out=[{id:'setup',label:'Setup',file:'setup.sh',code:setup,note:'Run once on the Pi. Enables SPI and installs fonts. The LCD driver comes from the Waveshare demo.'},
+      {id:'init',label:'Init and clear',file:'init_clear.py',code:init,note:'Initializes the display and clears it.'},
+      {id:'render',label:'Render layout',file:'render.py',code:render,note:'Rebuilt from the canvas above. Function names follow the Waveshare demo, so check them against your copy.'},
+      {id:'live',label:'Live loop',file:'live.py',code:liveL,note:'Redraws every second, so wired values stay current.'}];
+  }
+  return{list:out};
+}
+function openDisplay(n){
+  var T=TY[n.type],c=dcfg(n),d=n.props.dsp,bbs=[],tab='render',cv,edBox,scrBox,drag=null;
+  function selEl(){return d.els[d.sel]}
+  function paint(){var ctx=cv.getContext&&cv.getContext('2d');if(ctx)paintDisplay(ctx,n,bbs,d.sel)}
+  function ch(){paint();renderScripts();changed()}
+  function num(label,obj,key){
+    var i=h('input',{type:'number',step:'1',value:obj[key]});
+    i.addEventListener('input',function(){obj[key]=i.value===''?0:parseFloat(i.value);ch();refreshChips()});
+    return [h('label',{text:label}),i];
+  }
+  var chipBox;
+  function elName(el,i){return (i+1)+' '+(el.t==='text'?String(el.v).slice(0,10):el.t==='icon'?el.name:el.t)}
+  function refreshChips(){
+    chipBox.innerHTML='';
+    d.els.forEach(function(el,i){chipBox.appendChild(h('button',{class:'btn sm'+(d.sel===i?' on':''),text:elName(el,i),onclick:function(){d.sel=i;refreshChips();paint();renderEd()}}))});
+  }
+  function renderEd(){
+    edBox.innerHTML='';var el=selEl();if(!el){edBox.appendChild(h('div',{class:'note',text:'No element selected.'}));return}
+    var f=h('div');
+    function row(kids){var r=h('div',{class:'f2'});kids.forEach(function(k){r.appendChild(k)});f.appendChild(r)}
+    if(el.t==='text'){
+      var ti=h('input',{type:'text',value:el.v});ti.addEventListener('input',function(){el.v=ti.value;ch();refreshChips()});
+      row([h('label',{text:'Text'}),ti]);
+      var hint=h('div',{class:'note',text:'Use {in1}, {in2}, {in3} to show values wired into this block.'});f.appendChild(hint);
+      row(num('Size',el,'s'));
+    }
+    if(el.t==='icon'){
+      var ns=h('select');Object.keys(ICON_DEFS).forEach(function(k){ns.appendChild(h('option',{value:k,text:k}))});ns.value=el.name;ns.addEventListener('change',function(){el.name=ns.value;ch();refreshChips()});row([h('label',{text:'Icon'}),ns]);
+      row(num('Size',el,'s'));
+      var ws=h('select');[['','Always'],['in1','When in1 is on'],['in2','When in2 is on'],['in3','When in3 is on']].forEach(function(o){ws.appendChild(h('option',{value:o[0],text:o[1]}))});ws.value=el.when||'';ws.addEventListener('change',function(){el.when=ws.value;ch()});row([h('label',{text:'Show'}),ws]);
+    }
+    row(num('X',el,'x'));row(num('Y',el,'y'));
+    if(el.t==='rect'||el.t==='img'){row(num('Width',el,'w'));row(num('Height',el,'h'));
+      if(el.t==='img'){var ss=h('select');[['library','Current library photo'],['last','Newest photo'],['live','Live camera frame']].forEach(function(o){ss.appendChild(h('option',{value:o[0],text:o[1]}))});ss.value=el.src||'last';ss.addEventListener('change',function(){el.src=ss.value;ch()});row([h('label',{text:'Source'}),ss]);f.appendChild(h('div',{class:'note',text:'The preview shows a stand-in picture. The generated script pastes your real photo here. With a Photo library block, Current library photo follows Next and Previous. Without one, the newest photo in the folder is used.'}))}
+      if(el.t==='rect'){
+      var fl=h('input',{type:'checkbox'});fl.checked=!!el.f;fl.addEventListener('change',function(){el.f=fl.checked?1:0;ch()});row([h('label',{text:'Filled'}),fl])}}
+    if(el.t==='line'){row(num('X2',el,'x2'));row(num('Y2',el,'y2'))}
+    if(!c.mono){var col=h('input',{type:'color',value:el.c});col.addEventListener('input',function(){el.c=col.value;ch()});row([h('label',{text:'Color'}),col])}
+    edBox.appendChild(f);
+  }
+  function addEl(t){
+    if(t==='icon'){addIconToScreen(n,'camera');d.sel=d.els.length-1;refreshChips();renderEd();ch();commitNow();return}
+    if(t==='img'){addFrameToScreen(n);d.sel=d.els.length-1;refreshChips();renderEd();ch();commitNow();return}
+    var el=t==='text'?{t:'text',x:10,y:10,s:c.mono?16:14,b:0,v:'text',c:c.mono?'#000000':'#ffffff'}:t==='rect'?{t:'rect',x:10,y:10,w:40,h:20,f:0,c:c.mono?'#000000':'#ffffff'}:{t:'line',x:10,y:c.h/2,x2:c.w-10,y2:c.h/2,c:c.mono?'#000000':'#ffffff'};
+    d.els.push(el);d.sel=d.els.length-1;refreshChips();renderEd();ch();commitNow();
+  }
+  function renderScripts(){renderConsole()}
+  openSheet(T.title+' tools',function(b){
+    b.appendChild(h('div',{class:'sec',text:'Layout ('+c.w+' x '+c.h+(c.mono?', black and white':', color')+')'}));
+    cv=h('canvas',{class:'dcv',width:c.w,height:c.h});b.appendChild(cv);
+    cv.addEventListener('pointerdown',function(e){
+      var r=cv.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*c.w,y=(e.clientY-r.top)/r.height*c.h,hit=-1;
+      for(var i=bbs.length-1;i>=0;i--){var bb=bbs[i];if(!bb)continue;
+        var inside=x>=bb.x-4&&x<=bb.x+bb.w+4&&y>=bb.y-4&&y<=bb.y+bb.h+4;
+        if(bb.rect&&!bb.f){var e2=6;inside=inside&&(x<bb.x+e2||x>bb.x+bb.w-e2||y<bb.y+e2||y>bb.y+bb.h-e2)}
+        if(inside){hit=i;break}}
+      if(hit<0)return;
+      d.sel=hit;drag={sx:x,sy:y,el:d.els[hit],ox:d.els[hit].x,oy:d.els[hit].y,ox2:d.els[hit].x2,oy2:d.els[hit].y2,moved:false};
+      try{cv.setPointerCapture(e.pointerId)}catch(x2){}
+      refreshChips();renderEd();paint();
+    });
+    cv.addEventListener('pointermove',function(e){
+      if(!drag)return;var r=cv.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*c.w,y=(e.clientY-r.top)/r.height*c.h;
+      var dx=Math.round(x-drag.sx),dy=Math.round(y-drag.sy);if(dx||dy)drag.moved=true;
+      drag.el.x=drag.ox+dx;drag.el.y=drag.oy+dy;
+      if(drag.el.t==='line'){drag.el.x2=drag.ox2+dx;drag.el.y2=drag.oy2+dy}
+      paint();renderScripts();
+    });
+    function up(){if(drag&&drag.moved){renderEd();changed()}drag=null}
+    cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+    b.appendChild(h('div',{class:'note',text:'Tap an element on the canvas to select it, then drag to move it.'}));
+    chipBox=h('div',{class:'flex',style:'margin-top:10px'});b.appendChild(chipBox);
+    b.appendChild(h('div',{class:'flex',style:'margin-top:8px'},[
+      h('button',{class:'btn sm',text:'+ Text',onclick:function(){addEl('text')}}),
+      h('button',{class:'btn sm',text:'+ Box',onclick:function(){addEl('rect')}}),
+      h('button',{class:'btn sm',text:'+ Line',onclick:function(){addEl('line')}}),
+      h('button',{class:'btn sm',text:'+ Camera frame',onclick:function(){addEl('img')}}),
+      h('button',{class:'btn sm',text:'+ Icon',onclick:function(){addEl('icon')}}),
+      h('button',{class:'btn sm',text:'Remove selected',onclick:function(){if(d.els.length){d.els.splice(d.sel,1);d.sel=Math.max(0,d.sel-1);refreshChips();renderEd();ch();commitNow()}}})
+    ]));
+    edBox=h('div');b.appendChild(edBox);
+    var st=h('div',{class:'f2'});
+    if(c.mono){var iv=h('input',{type:'checkbox'});iv.checked=!!d.invert;iv.addEventListener('change',function(){d.invert=iv.checked;ch()});st.appendChild(h('label',{text:'Invert'}));st.appendChild(iv)}
+    else{var bgc=h('input',{type:'color',value:d.bg});bgc.addEventListener('input',function(){d.bg=bgc.value;ch()});st.appendChild(h('label',{text:'Background'}));st.appendChild(bgc)}
+    b.appendChild(st);
+    b.appendChild(h('div',{class:'flex'},[h('button',{class:'btn sm',text:'Export layout as PNG',onclick:function(){
+      if(!cv.toBlob){toast('PNG export is not available here');return}
+      cv.toBlob(function(bl){if(!bl)return;var a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download=slug(P.name)+'-'+n.type+'.png';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500)})
+    }})]));
+    b.appendChild(h('div',{class:'sec',text:'Scripts'}));
+    scrBox=h('div');b.appendChild(scrBox);
+    scrBox.appendChild(h('div',{class:'note',text:'Scripts for this screen are in the console sidebar, one tab each. They update as you edit the layout.'}));
+    scrBox.appendChild(h('button',{class:'btn',style:'margin-top:8px',text:'Open in console',onclick:function(){openScreenConsole(n)}}));
+    if(d.sel>=d.els.length)d.sel=0;
+    refreshChips();renderEd();paint();renderScripts();
+    if(n.type==='eink')b.appendChild(h('div',{class:'note',text:'E-ink notes: a full refresh takes a couple of seconds and flashes. Use partial refresh for small changes, do a full refresh now and then to clear ghosting, and do not leave the panel powered between updates.'}));
+  },function(){paint();renderScripts()});
+}
+
+/* ---------- menu and project ops ---------- */
+function openMenu(){
+  openSheet('Project',function(b){
+    function item(t,fn){b.appendChild(h('button',{class:'btn',style:'display:block;width:100%;text-align:left;margin-bottom:8px',text:t,onclick:function(){closeSheet();fn()}}))}
+    item('New project',function(){var nm=prompt('Project name','Untitled');if(nm===null)return;newProject(nm||'Untitled')});
+    item('Rename project',function(){var nm=prompt('Project name',P.name);if(nm){P.name=nm;projList();saveSoon()}});
+    item('Duplicate project',function(){
+      var o=JSON.parse(JSON.stringify(serP(P)));o.id='p'+Date.now().toString(36);o.name=P.name+' copy';hydrate(o);S.projects.push(o);setProject(o.id);
+    });
+    item('Export this project (.json)',function(){download('makers-sandbox-'+slug(P.name)+'.json',JSON.stringify({kind:'makers-sandbox',v:1,project:serP(P)},null,1),'application/json')});
+    item('Export all projects (.json)',function(){download('makers-sandbox-all.json',JSON.stringify({kind:'makers-sandbox',v:1,projects:S.projects.map(serP)},null,1),'application/json')});
+    item('Import projects (.json)',function(){$('#file').click()});
+    item('Project setup script',openProjectSetup);
+    item('Next steps',openIdeas);
+    item('Run the whole project',openRun);
+    item('Starter projects',openStarters);
+    item('Controls script',openControls);
+    item('Delete this project',function(){
+      if(!confirm('Delete "'+P.name+'"? This cannot be undone.'))return;
+      S.projects=S.projects.filter(function(p){return p!==P});
+      if(!S.projects.length){var p=hydrate({id:'p'+Date.now().toString(36),name:'Untitled',nodes:[],wires:[],seq:1});S.projects.push(p)}
+      setProject(S.projects[0].id);
+    });
+    b.appendChild(h('div',{class:'note',text:'Projects save in this browser automatically. Export a file to back up or move a project to another device.'}));
+  });
+}
+function newProject(name){
+  var p=hydrate({id:'p'+Date.now().toString(36)+Math.floor(Math.random()*99),name:name,nodes:[],wires:[],seq:1,view:{x:30,y:30,k:.9}});
+  S.projects.push(p);setProject(p.id);
+}
+$('#file').addEventListener('change',function(e){
+  var f=e.target.files[0];e.target.value='';if(!f)return;
+  var r=new FileReader();
+  r.onload=function(){
+    try{
+      var o=JSON.parse(r.result);
+      var list=o.projects||(o.project?[o.project]:null);
+      if(!list||o.kind!=='makers-sandbox')throw new Error('x');
+      if(!confirm('Import '+list.length+' project(s)? Projects can contain code blocks that run in your browser. Only import files you trust.'))return;
+      var last=null;
+      list.forEach(function(p){p.id='p'+Date.now().toString(36)+Math.floor(Math.random()*999);hydrate(p);S.projects.push(p);last=p});
+      setProject(last.id);toast('Imported');
+    }catch(err){toast("That file isn't a Makers sandbox export")}
+  };
+  r.readAsText(f);
+});
+
+/* ---------- parts catalog: setup, catalog, part page ---------- */
+function badgeEl(ok){
+  var m={1:['ok','Checked against docs'],0:['me','From memory'],2:['sg','Suggestion'],3:['','Catalog note']};
+  var x=m[ok===undefined?0:ok]||m[0];
+  return h('span',{class:'bdg'+(x[0]?' '+x[0]:''),text:x[1]});
+}
+function libOn(n,l){
+  var o=n&&n.props&&n.props.libs;
+  if(o&&o[l.id]!==undefined)return !!o[l.id];
+  return !!l.def;
+}
+function setupLines(items){
+  var ifs=[],apt=[],pip=[],git=[],man=[],out=[],blinka=false,pi5=false,esp=false,any=false;
+  function add(a,v){if(v&&a.indexOf(v)<0)a.push(v)}
+  items.forEach(function(it){
+    if(it.host==='esp'){esp=true;return}
+    any=true;if(it.host==='pi5')pi5=true;
+    (it.A.ifaces||[]).forEach(function(f){(IFACE_CMD[f]||[]).forEach(function(c){add(ifs,c)})});
+    (it.A.libs||[]).forEach(function(l){
+      if(!it.on(l))return;
+      if(l.blinka)blinka=true;
+      if(l.pm==='apt')String(l.pkg).split(' ').forEach(function(p){add(apt,p)});
+      else if(l.pm==='pip')add(pip,l.pkg);
+      else if(l.pm==='git')add(git,l.pkg);
+      else if(l.pm==='manual')(l.lines||[]).forEach(function(x){add(man,x)});
+    });
+  });
+  if(esp&&!any)return ['# ESP32-S3 add-ons are wired to free GPIO and run as firmware. Nothing to install on a Pi.'];
+  if(pi5&&blinka){add(apt,'python3-rpi-lgpio')}
+  ifs.forEach(function(c){out.push(c)});
+  if(apt.length){out.push('sudo apt update');out.push('sudo apt install -y '+apt.join(' '))}
+  if(pi5&&blinka)out.push('# Pi 5: if RPi.GPIO is installed, remove it first (sudo apt remove -y python3-rpi.gpio). python3-rpi-lgpio replaces it');
+  if(pip.length){
+    out.push('python3 -m venv --system-site-packages ~/sandbox-env');
+    out.push('source ~/sandbox-env/bin/activate');
+    out.push('pip install '+pip.join(' '));
+  }
+  git.forEach(function(u){out.push('git clone '+u)});
+  man.forEach(function(x){out.push(x)});
+  if(esp)out.push('# ESP32-S3 add-ons are wired to free GPIO and need firmware libraries, not Pi packages.');
+  if(!out.length)out.push('# Nothing to install for the current choices.');
+  return out;
+}
+function installText(items){return ['#!/bin/bash','set -e'].concat(setupLines(items)).join('\n')}
+function openProjectSetupOld(){
+  var items=[];
+  P.nodes.forEach(function(n){
+    if(!isAddon(n))return;
+    var hn=hostOf(n);
+    items.push({A:ADDONS[n.type],on:function(l){return libOn(n,l)},host:hn?hn.type:'zero2'});
+  });
+  openSheet('Project setup script',function(b){
+    if(!items.length){b.appendChild(h('div',{class:'note',text:'No parts on the canvas yet. Add parts from the catalog and this script collects everything they need, with each command listed once.'}));return}
+    var txt=installText(items);
+    b.appendChild(h('div',{class:'note',text:'One script for every part in this project. Interface switches, apt packages, Python libraries and downloads are merged so nothing runs twice.'}));
+    b.appendChild(h('pre',{class:'code',text:txt}));
+    b.appendChild(h('div',{class:'flex',style:'margin-top:10px'},[
+      h('button',{class:'btn',text:'Copy',onclick:function(){copyText(txt)}}),
+      h('button',{class:'btn',text:'Download setup.sh',onclick:function(){download(slug(P.name)+'-setup.sh',txt+'\n','text/x-shellscript')}})]));
+  });
+}
+function hostNodeOf(type){return P.nodes.filter(function(n){return n.type===type})[0]||null}
+function openCatalog(hostType){openSheet('Parts catalog',function(b){buildCatalog(b,hostType)})}
+function buildCatalog(b,hostType){
+  var st={cat:'all',host:hostType||'all'},box=h('div'),chips=h('div',{class:'flex'}),hs=h('select',{class:'sm'});
+  hs.appendChild(h('option',{value:'all',text:'Any host'}));
+  Object.keys(HOSTS).forEach(function(k){hs.appendChild(h('option',{value:k,text:HOSTS[k].title}))});
+  hs.value=st.host;
+  hs.addEventListener('change',function(){st.host=hs.value;draw()});
+  b.appendChild(chips);b.appendChild(h('div',{style:'margin:8px 0'},[hs]));b.appendChild(box);
+  function draw(){
+    chips.innerHTML='';
+    [{id:'all',name:'All'}].concat(CATS).forEach(function(c){
+      chips.appendChild(h('button',{class:'btn sm'+(st.cat===c.id?' on':''),text:c.name,onclick:function(){st.cat=c.id;draw()}}));
+    });
+    box.innerHTML='';var cnt=0;
+    Object.keys(ADDONS).forEach(function(id){
+      var A=ADDONS[id];
+      if(st.cat!=='all'&&A.cat!==st.cat)return;
+      if(st.host!=='all'&&A.hosts.indexOf(st.host)<0)return;
+      cnt++;
+      var meta=(A.ifaces||[]).join(' + ')+' | '+A.hosts.map(function(k){return HOSTS[k].short}).join(', ');
+      box.appendChild(h('button',{class:'crow',onclick:function(){openPart(id,null,st.host==='all'?null:st.host)}},[h('b',{text:A.title}),h('span',{text:A.desc}),h('span',{text:meta})]));
+    });
+    if(!cnt)box.appendChild(h('div',{class:'note',text:'Nothing in this category fits that host.'}));
+  }
+  draw();
+}
+function openPart(id,node,hostArg){
+  var A=ADDONS[id];if(!A)return;
+  var curHost=node&&hostOf(node)?hostOf(node).type:(typeof hostArg==='string'?hostArg:(hostArg&&hostArg.type)||null);
+  if(!curHost||A.hosts.indexOf(curHost)<0)curHost=A.hosts.filter(function(k){return HOSTS[k].pi})[0]||A.hosts[0];
+  var local={};
+  function on(l){
+    if(node){node.props.libs=node.props.libs||{};return libOn(node,l)}
+    return local[l.id]!==undefined?local[l.id]:!!l.def;
+  }
+  openSheet(A.title,function(b){
+    var box=h('div');b.appendChild(box);
+    function draw(){
+      box.innerHTML='';
+      box.appendChild(h('div',{class:'note',text:A.desc}));
+      box.appendChild(h('div',{class:'flex',style:'margin-top:8px'},(A.ifaces||[]).map(function(f){return h('span',{class:'chipx',text:f})})));
+      if(A.variants&&A.variants.length){
+        box.appendChild(h('div',{class:'sec',text:'Variants'}));
+        A.variants.forEach(function(v){box.appendChild(h('div',{class:'item'},[h('div',{class:'t'},[h('b',{text:v.name}),h('span',{text:v.note})])]))});
+      }
+      box.appendChild(h('div',{class:'sec',text:'Host'}));
+      var hs=h('select',{class:'sm'});
+      Object.keys(HOSTS).forEach(function(k){
+        var ok=A.hosts.indexOf(k)>=0,op=h('option',{value:k,text:HOSTS[k].title+(ok?'':' - '+(A.why[k]||'does not fit'))});
+        if(!ok)op.disabled=true;hs.appendChild(op);
+      });
+      hs.value=curHost;hs.addEventListener('change',function(){curHost=hs.value;draw()});
+      box.appendChild(hs);
+      var hn=hostNodeOf(curHost),fr=null;
+      if(hn&&!(node&&hostOf(node)===hn)){fr=fit({type:id,props:{}},hn)}
+      else if(node&&hostOf(node))fr=fit(node,hostOf(node));
+      if(fr)box.appendChild(h('div',{class:'note '+(fr.ok?'msg-ok':'msg-bad'),text:(fr.warn?'':(fr.ok?'On the canvas: ':'On the canvas: '))+fr.msg}));
+      else box.appendChild(h('div',{class:'note',text:'No '+HOSTS[curHost].title+' on the canvas yet.'}));
+      var nd=(A.needs||[]).filter(function(x){return !x.host||x.host.indexOf(curHost)>=0});
+      if(nd.length){
+        box.appendChild(h('div',{class:'sec',text:'What it needs'}));
+        nd.forEach(function(x){box.appendChild(h('div',{class:'item'},[h('div',{class:'t',text:x.t}),badgeEl(x.ok)]))});
+      }
+      box.appendChild(h('div',{class:'sec',text:'Libraries'}));
+      (A.libs||[]).forEach(function(l){
+        var cb=h('input',{type:'checkbox'});cb.checked=on(l);
+        cb.addEventListener('change',function(){
+          if(node){node.props.libs=node.props.libs||{};node.props.libs[l.id]=cb.checked;changed()}else local[l.id]=cb.checked;
+          drawSetup();
+        });
+        var how=l.pm==='bundled'?'Preinstalled':l.pm==='apt'?'apt: '+l.pkg:l.pm==='pip'?'pip: '+l.pkg:l.pm==='git'?'git clone':'manual download';
+        box.appendChild(h('label',{class:'item'},[cb,h('div',{class:'t'},[h('b',{text:l.name}),h('span',{text:l.what+' | '+l.lang+' | '+how+(l.note?' | '+l.note:'')})]),badgeEl(l.ok)]));
+      });
+      if(A.recipes&&A.recipes.length){
+        box.appendChild(h('div',{class:'sec',text:'What you can make'}));
+        A.recipes.forEach(function(r){box.appendChild(h('div',{class:'item'},[h('div',{class:'t',text:r}),badgeEl(2)]))});
+      }
+      if(A.recs&&A.recs.length){
+        box.appendChild(h('div',{class:'sec',text:'Goes well with'}));
+        A.recs.forEach(function(r){
+          var B=ADDONS[r.part];if(!B)return;
+          var fits=B.hosts.indexOf(curHost)>=0;
+          box.appendChild(h('div',{class:'item'},[h('div',{class:'t'},[h('b',{text:B.title}),h('span',{text:r.why+(fits?'':' | does not fit '+HOSTS[curHost].short)})]),
+            h('button',{class:'btn sm',text:'Add',onclick:function(){addPartNode(r.part,hostNodeOf(curHost))}}),
+            h('button',{class:'btn sm',text:'Page',onclick:function(){openPart(r.part,null,curHost)}})]));
+        });
+      }
+      box.appendChild(h('div',{class:'sec',text:'Setup for this part'}));
+      var sbox=h('div');box.appendChild(sbox);
+      box._sbox=sbox;drawSetup();
+      box.appendChild(h('div',{class:'flex',style:'margin-top:14px'},[
+        node?h('span',{class:'note',text:'This part is on the canvas.'}):h('button',{class:'btn pri',text:'Add to canvas',onclick:function(){addPartNode(id,hostNodeOf(curHost))}}),
+        h('button',{class:'btn',text:'Project setup script',onclick:openProjectSetup})]));
+    }
+    function drawSetup(){
+      var sb=box._sbox;if(!sb)return;sb.innerHTML='';
+      var txt=installText([{A:A,on:on,host:curHost}]);
+      sb.appendChild(h('pre',{class:'code',text:txt}));
+      sb.appendChild(h('div',{class:'flex',style:'margin-top:8px'},[h('button',{class:'btn sm',text:'Copy',onclick:function(){copyText(txt)}})]));
+    }
+    draw();
+  });
+}
+function addPartNode(id,hostNode){
+  var n=addNode(id);
+  if(hostNode&&isHost(hostNode)){
+    var f=fit(n,hostNode);
+    if(f.ok){n.props.mount=hostNode.id;touch(n);commitNow();drawWires();toast(ADDONS[id].title+' added on '+HOSTS[hostNode.type].short+(f.warn?'. '+f.warn:''))}
+    else toast('Added unmounted. '+f.msg);
+  }else toast(ADDONS[id].title+' added');
+  return n;
+}
+
+/* ---------- controls script ---------- */
+function genControls(hn){
+  var acts=P.nodes.filter(function(n){return n.type==='action'&&n.props.host===hn.id});
+  var imps=[],btnImp=[],setup=[],hand=[],notes=[],camK={},camCount=0,groups=[],gi={},deps={};
+  function add(a,v){if(v&&a.indexOf(v)<0)a.push(v)}
+  acts.forEach(function(n){
+    var tg=actionTarget(n);
+    if(!tg){notes.push('# Action #'+n.id+' has no target on this Pi, skipped');return}
+    var c={arg:n.props.arg,k:0,cam:'picam2',rec:'recording',lib:!!libFor(hn)};
+    if(/^p_(cam|hq)/.test(tg.own.type)){
+      if(camK[tg.own.id]===undefined)camK[tg.own.id]=camCount++;
+      c.k=camK[tg.own.id];c.cam='picam2_'+c.k;c.rec='recording_'+c.k;
+    }
+    var t=tg.a.tpl(c);
+    t.imp.forEach(function(x){add(imps,x)});t.setup.forEach(function(x){add(setup,x)});
+    var fname='act_'+n.id;
+    hand.push('def '+fname+'():');
+    t.fn.forEach(function(l){hand.push('    '+l)});hand.push('');
+    var w=INW[n.id+':0'],s=w?NM[w.from.n]:null;
+    if(!s){notes.push('# '+fname+' ('+tg.a.label+') has nothing wired to its trigger');return}
+    if(s.type==='action'){var upn='act_'+s.id;(deps[upn]=deps[upn]||[]).push(fname);return}
+    var outName=((TY[s.type].outs[w.from.p]||{}).n||'').toLowerCase(),A=ADDONS[s.type],mode=n.props.mode||'press';
+    var cls=A?claimsOf(s):[],cl=cls.filter(function(x){return x.r.toLowerCase()===outName})[0];
+    var key,ctor,kind,ev;
+    if(s.type==='p_pir'){cl=cls[0];kind='pir';key='pir_'+s.id;ctor=key+' = MotionSensor('+cl.g+')';add(btnImp,'MotionSensor');ev=mode==='release'?'when_no_motion':'when_motion'}
+    else if(s.type==='p_encoder'&&(outName==='clockwise'||outName==='counter')){
+      var ca=cls.filter(function(x){return x.r==='CLK'})[0],cb=cls.filter(function(x){return x.r==='DT'})[0];
+      kind='enc';key='enc_'+s.id;ctor=key+' = RotaryEncoder('+ca.g+', '+cb.g+')   # '+A.short+' CLK GPIO'+ca.g+', DT GPIO'+cb.g;add(btnImp,'RotaryEncoder');
+      ev=outName==='clockwise'?'when_rotated_clockwise':'when_rotated_counter_clockwise';
+    }else{
+      if(s.type==='p_encoder'&&outName==='press')cl=cls.filter(function(x){return x.r==='SW'})[0];
+      if((s.type==='p_button'||s.type==='p_touchpad')&&cls.length)cl=cls[0];
+      if(!cl||hostOf(s)!==hn){notes.push('# '+fname+' ('+tg.a.label+') is wired to '+TY[s.type].title+', which is logic or a value. Call '+fname+'() from your own code when it turns on');return}
+      kind='btn';key='btn_'+s.id+'_'+cl.r.toLowerCase();
+      ctor=key+' = Button('+cl.g+(s.type==='p_touchpad'?', pull_up=False':'')+')   # '+A.short+' '+cl.r+', GPIO'+cl.g;add(btnImp,'Button');
+      ev=mode==='release'?'when_released':(mode==='hold'||mode==='hold3')?'when_held':'when_pressed';
+    }
+    var gk=key+'|'+(ev||'')+'|'+mode;
+    if(!gi[gk]){gi[gk]={key:key,ctor:ctor,ev:ev,hold:ev==='when_held'?(mode==='hold3'?3:1):0,fns:[],uniq:key+'_'+(ev||'').replace('when_','')+(mode.indexOf('hold')===0?'_'+mode:'')};groups.push(gi[gk])}
+    gi[gk].fns.push(fname);
+  });
+  if(!acts.length)return '# No Action blocks on this Pi yet. Add one from the block list under Logic.';
+  if(libFor(hn)){add(imps,'import photolib');add(setup,'photolib.on_start()')}
+  var bind=[],made={},reach={};
+  function expand(f){var r=[f];(deps[f]||[]).forEach(function(d){r=r.concat(expand(d))});return r}
+  groups.forEach(function(g){
+    var list=[];g.fns.forEach(function(f){list=list.concat(expand(f))});list.forEach(function(f){reach[f]=1});
+    var target=list[0];
+    if(list.length>1){target='chain_'+g.uniq;hand.push('def '+target+'():');list.forEach(function(f){hand.push('    '+f+'()')});hand.push('')}
+    if(!made[g.key]){made[g.key]=1;bind.push(g.ctor)}
+    if(g.hold)bind.push(g.key+'.hold_time = '+g.hold);
+    bind.push(g.key+'.'+g.ev+' = '+target);
+  });
+  Object.keys(deps).forEach(function(k){if(!reach[k]&&!Object.keys(deps).some(function(o){return deps[o].indexOf(k)>=0}))notes.push('# '+deps[k].join(', ')+' runs after '+k+', but '+k+' has no trigger wired, so it never runs')});
+  var head=['#!/usr/bin/env python3','try:','    import mock_camera   # does nothing unless you run with SANDBOX_MOCK=1 (see mock_camera.py)','except ImportError:','    pass'];
+  if(btnImp.length)head.push('from gpiozero import '+btnImp.join(', '));
+  head.push('from signal import pause');
+  var sorted=imps.filter(function(x){return x.indexOf('sys.path')<0&&x!=='import sys'}).sort();
+  var pre=imps.filter(function(x){return x==='import sys'});
+  var paths=imps.filter(function(x){return x.indexOf('sys.path')===0});
+  var needs=[];
+  if(imps.some(function(x){return x.indexOf('picamera2')>=0}))needs.push('python3-picamera2');
+  if(btnImp.length)needs.push('python3-gpiozero');
+  var out=head.concat(pre,paths,sorted,['']);
+  if(needs.length)out.push('# Needs: sudo apt install -y '+needs.join(' '),'');
+  out=out.concat(setup,setup.length?['']:[],hand,bind,notes,['','pause()']);
+  return out.join('\n');
+}
+function openControlsOld(){
+  var hosts=P.nodes.filter(function(x){return isHost(x)&&HOSTS[x.type].pi});
+  openSheet('Controls script',function(b){
+    if(!hosts.length){b.appendChild(h('div',{class:'note',text:'Add a Pi to the canvas first.'}));return}
+    var cur=hosts[0],box=h('div'),tabs=h('div',{class:'flex'});
+    b.appendChild(tabs);b.appendChild(box);
+    function draw(){
+      tabs.innerHTML='';box.innerHTML='';
+      if(hosts.length>1)hosts.forEach(function(x){tabs.appendChild(h('button',{class:'btn sm'+(x===cur?' on':''),text:HOSTS[x.type].title+' #'+x.id,onclick:function(){cur=x;draw()}}))});
+      var code=genControls(cur);
+      box.appendChild(h('div',{class:'note',text:'Binds each Action block to the input wired into it. Test on the Pi before relying on it, and run it with python3 controls.py.'}));
+      box.appendChild(h('pre',{class:'code',text:code}));
+      box.appendChild(h('div',{class:'flex',style:'margin-top:10px'},[
+        h('button',{class:'btn',text:'Copy',onclick:function(){copyText(code)}}),
+        h('button',{class:'btn',text:'Download controls.py',onclick:function(){download(slug(P.name)+'-controls.py',code+'\n','text/x-python')}})]));
+    }
+    draw();
+  });
+}
+
+function addIconToScreen(sc,name){
+  var c=dcfg(sc),d=sc.props.dsp;
+  d.els.push({t:'icon',name:name,x:c.w-20,y:3,s:16,c:c.mono?'#000000':'#ffffff',when:''});d.sel=d.els.length-1;refresh();commitNow();
+}
+/* ---------- run the whole project ---------- */
+function screenLoop(n){
+  var g=genScripts(n);if(!g.list)return null;
+  var id=n.type==='eink'?'part':'live',s=g.list.filter(function(x){return x.id===id})[0];
+  return s?{file:'screen-'+ADDONS[n.type].short.toLowerCase().replace(/[^a-z0-9]/g,'')+'-'+n.id+'.py',code:s.code,label:ADDONS[n.type].short+' screen'}:null;
+}
+function projectFiles(hn){
+  var files=[],parts=mountedOn(hn.id);
+  var hasActs=P.nodes.some(function(n){return n.type==='action'&&n.props.host===hn.id});
+  var run=[];
+  if(hasActs){files.push({file:'controls.py',label:'Controls',code:genControls(hn),note:'Buttons, sensors and the actions they trigger.'});run.push('controls.py')}
+  if(hasActs)files.push({file:'mock_camera.py',label:'Mock camera',code:genMockCamera(),note:'For testing on a computer with no Pi. Run: pip install gpiozero pillow, then SANDBOX_MOCK=1 python3 controls.py. It fakes the camera and buttons, writes test pictures into your photo folder, and lets you type a GPIO number to press a button. Leave it out on the Pi.'});
+  parts.forEach(function(p){
+    if(!ADDONS[p.type].layout)return;
+    var s=screenLoop(p);if(s){files.push({file:s.file,label:s.label,code:s.code,note:'Keeps the screen up to date. Values wired in are read live where supported.'});run.push(s.file)}
+  });
+  var main=['#!/usr/bin/env python3','"""Starts everything in this project. Run: python3 main.py"""','import os','import subprocess','import sys','import time','import signal','',
+    'FILES = ['].concat(run.map(function(f){return '    '+pyStr(f)+','}),[']','',"if os.environ.get('SANDBOX_MOCK') == '1':","    FILES = [f for f in FILES if f == 'controls.py']   # screens need the real hardware",'','procs = [subprocess.Popen([sys.executable, f]) for f in FILES]','','','def stop(*_):','    for p in procs:','        p.terminate()','    sys.exit(0)','','','signal.signal(signal.SIGINT, stop)','signal.signal(signal.SIGTERM, stop)','',
+    'while True:','    for i, f in enumerate(FILES):','        if procs[i].poll() is not None:',"            print(f, 'stopped, restarting')",'            procs[i] = subprocess.Popen([sys.executable, f])','    time.sleep(5)']);
+  var used={},clash=[];
+  P.wires.forEach(function(w){var t=NM[w.to.n];if(t&&t.type==='action'&&t.props.host===hn.id)used[w.from.n]=1});
+  parts.forEach(function(sc){if(!ADDONS[sc.type].layout)return;[0,1,2].forEach(function(i){var w=INW[sc.id+':'+i];if(w&&used[w.from.n]&&SENS[NM[w.from.n].type]&&NM[w.from.n].type!=='p_bme280')clash.push(ADDONS[NM[w.from.n].type].short+' is read by both controls.py and the '+ADDONS[sc.type].short+' screen script')})});
+  files.unshift({file:'main.py',label:'main',code:main.join('\n'),note:'Starts every script in this project and restarts any that stop. If you installed Python libraries with pip, run it with ~/sandbox-env/bin/python3 main.py.'+(clash.length?' Warning: '+clash.join('; ')+'. Two scripts cannot open the same GPIO pin at once, so only one of them should read it.':'')});
+  var items=parts.concat([hn]).filter(function(p){return isAddon(p)}).map(function(p){return{A:ADDONS[p.type],on:function(l){return libOn(p,l)},host:hn.type}});
+  var lb=libFor(hn);
+  if(lb){files.push({file:'photolib.py',label:'Photo library',code:genPhotoLib(lb),note:'Shared by the controls and screen scripts. Keep it in the same folder as them.'});files.push({file:'get-photos.sh',label:'Get photos',code:genGetPhotos(lb),note:'Run this on your own computer to copy the photos off the Pi.'})}
+  files.push({file:'setup.sh',label:'Setup',code:installText(items),note:'Run once. Turns on interfaces and installs what every part needs.'});
+  files.push({file:'install-service.sh',label:'Autostart',code:['#!/bin/bash','# Run this from the folder that holds main.py. It starts the project on every boot.','DIR="$(pwd)"','PY="$HOME/sandbox-env/bin/python3"','[ -x "$PY" ] || PY=/usr/bin/python3',
+    'sudo tee /etc/systemd/system/sandbox-project.service >/dev/null <<EOF','[Unit]','Description=Makers sandbox project','After=multi-user.target','','[Service]','User=$USER','WorkingDirectory=$DIR','ExecStart=$PY $DIR/main.py','Restart=on-failure','','[Install]','WantedBy=multi-user.target','EOF',
+    'sudo systemctl daemon-reload','sudo systemctl enable --now sandbox-project.service','# Stop it later with: sudo systemctl disable --now sandbox-project.service'].join('\n'),note:'Optional. Makes the project start by itself when the Pi boots.'});
+  return files;
+}
+function openRunOld(){
+  var hosts=P.nodes.filter(function(x){return isHost(x)&&HOSTS[x.type].pi});
+  openSheet('Run the whole project',function(b){
+    if(!hosts.length){b.appendChild(h('div',{class:'note',text:'Add a Pi first. Everything mounted on it becomes one project you can run.'}));return}
+    var cur=hosts[0],tab=0,box=h('div'),tabs=h('div',{class:'flex'});
+    b.appendChild(tabs);b.appendChild(box);
+    function draw(){
+      tabs.innerHTML='';box.innerHTML='';
+      var files=projectFiles(cur);if(tab>=files.length)tab=0;
+      if(hosts.length>1)box.appendChild(h('div',{class:'flex'},hosts.map(function(x){return h('button',{class:'btn sm'+(x===cur?' on':''),text:HOSTS[x.type].title+' #'+x.id,onclick:function(){cur=x;tab=0;draw()}})})));
+      box.appendChild(h('div',{class:'note',text:'Put all of these files in one folder on the Pi, run setup.sh once, then run main.py. Test each part on its own first.'}));
+      var tb=h('div',{class:'flex',style:'margin-top:8px'});
+      files.forEach(function(f,i){tb.appendChild(h('button',{class:'btn sm'+(i===tab?' on':''),text:f.file,onclick:function(){tab=i;draw()}}))});
+      box.appendChild(tb);
+      var f=files[tab],fn=slug(P.name)+'-'+f.file;
+      box.appendChild(h('pre',{class:'code',text:f.code}));
+      box.appendChild(h('div',{class:'note',text:f.note}));
+      box.appendChild(h('div',{class:'flex',style:'margin-top:10px'},[
+        h('button',{class:'btn',text:'Copy',onclick:function(){copyText(f.code)}}),
+        h('button',{class:'btn',text:'Download '+f.file,onclick:function(){download(f.file,f.code+'\n',f.file.slice(-3)==='.sh'?'text/x-shellscript':'text/x-python')}}),
+        h('button',{class:'btn',text:'Download all',onclick:function(){files.forEach(function(x,i){setTimeout(function(){download(x.file,x.code+'\n',x.file.slice(-3)==='.sh'?'text/x-shellscript':'text/x-python')},i*400)})}})]));
+    }
+    draw();
+  });
+}
+/* ---------- starter projects ---------- */
+function put(type,x,y,mount){
+  var n=addNode(type);n.x=x;n.y=y;var r=EL[n.id].root;r.style.left=x+'px';r.style.top=y+'px';
+  if(mount)n.props.mount=mount.id;return n;
+}
+function wireUp(a,pa,b,pb){P.wires.push({id:uid(),from:{n:a.id,p:pa},to:{n:b.id,p:pb}})}
+var STARTERS=[
+  {id:'booth',title:'Photo booth',desc:'Pi Zero 2, camera, LCD HAT, PiSugar and a photo library. One key shoots, left and right browse, hold down to delete, hold key3 to shut down.',
+   build:function(){
+     var z=put('zero2',40,60),cam=put('p_cam3',40,340,z),ps=put('ps',40,520,z),lcd=put('lcd',330,60,z);
+     wireUp(ps,0,lcd,0);lcd.props.dsp.els[0].v='booth';addFrameToScreen(lcd);
+     var lib=put('photolib',330,640);lib.props.host=z.id;
+     lcd.props.dsp.els.splice(2,0,{t:'text',x:8,y:84,s:12,b:0,v:'photo {in2} / {in3}',c:'#ffffff'});
+     wireUp(lib,1,lcd,1);wireUp(lib,0,lcd,2);lcd.props.dsp.els.forEach(function(e){if(e.t==='img')e.src='library'});
+     mkAction(z,cam,'photo',{n:lcd,p:4},'press');mkAction(z,lib,'prev',{n:lcd,p:2},'press');mkAction(z,lib,'next',{n:lcd,p:3},'press');
+     mkAction(z,lib,'delete',{n:lcd,p:1},'hold3');mkAction(z,z,'shutdown',{n:lcd,p:7},'hold');
+   }},
+  {id:'weather',title:'Weather station',desc:'Pi Zero 2, BME280 and an OLED. Temperature and humidity update live on the screen.',
+   build:function(){
+     var z=put('zero2',40,60),bme=put('p_bme280',40,340,z),oled=put('p_ssd1306',330,60,z);
+     wireUp(bme,0,oled,0);wireUp(bme,1,oled,1);
+     oled.props.dsp.els=[{t:'text',x:24,y:2,s:14,b:1,v:'Weather',c:'#ffffff'},{t:'text',x:24,y:24,s:14,b:0,v:'{in1} C',c:'#ffffff'},{t:'text',x:24,y:42,s:14,b:0,v:'{in2} %',c:'#ffffff'},
+       {t:'icon',name:'thermometer',x:4,y:24,s:16,c:'#ffffff',when:''},{t:'icon',name:'drop',x:4,y:42,s:16,c:'#ffffff',when:''}];
+     oled.props.dsp.sel=0;
+   }},
+  {id:'motion',title:'Motion camera',desc:'Pi Zero 2, PIR sensor, camera and OLED. Takes a photo whenever motion is seen.',
+   build:function(){
+     var z=put('zero2',40,60),pir=put('p_pir',40,320,z),cam=put('p_cam3',40,480,z),oled=put('p_ssd1306',330,60,z);
+     mkAction(z,cam,'photo',{n:pir,p:0},'press');
+     oled.props.dsp.els=[{t:'text',x:4,y:2,s:14,b:1,v:'motion cam',c:'#ffffff'},{t:'text',x:4,y:30,s:14,b:0,v:'armed',c:'#ffffff'},
+       {t:'icon',name:'camera',x:108,y:2,s:16,c:'#ffffff',when:''},{t:'icon',name:'record',x:4,y:46,s:12,c:'#ffffff',when:''}];
+     oled.props.dsp.sel=0;
+   }}
+];
+function startStarter(id){
+  var st=STARTERS.filter(function(x){return x.id===id})[0];if(!st)return;
+  newProject(st.title);closeSheet();
+  st.build();
+  refresh();drawWires();fitView();commitNow();drawMini();toast(st.title+' started. Open Next steps for ideas to build on it.');
+}
+function openStarters(){
+  openSheet('Starter projects',function(b){
+    b.appendChild(h('div',{class:'note',text:'Each one opens as a new project with parts mounted and wired. Change anything, or use them as a starting point.'}));
+    STARTERS.forEach(function(x){b.appendChild(h('button',{class:'crow',onclick:function(){startStarter(x.id)}},[h('b',{text:x.title}),h('span',{text:x.desc})]))});
+  });
+}
+/* ---------- console sidebar ---------- */
+var CON={open:false,tab:null,sig:''};
+function piHosts(){return P.nodes.filter(function(x){return isHost(x)&&HOSTS[x.type].pi})}
+function conSections(){
+  var secs=[];
+  var hosts=piHosts();
+  hosts.forEach(function(hn){
+    var pre=hosts.length>1?HOSTS[hn.type].short+' #'+hn.id+' / ':'',pf=projectFiles(hn);
+    function pick(name){return pf.filter(function(f){return f.file===name})[0]}
+    var keys=[['main.py','main'],['photolib.py','photolib'],['setup.sh','setup'],['install-service.sh','service'],['get-photos.sh','getphotos'],['mock_camera.py','mock']],proj=[];
+    keys.forEach(function(k){var f=pick(k[0]);if(f)proj.push({id:'h'+hn.id+':'+k[1],label:f.file,dl:(hosts.length>1?'pi'+hn.id+'-':'')+f.file,code:f.code,note:f.note})});
+    secs.push({name:pre+'Project',tabs:proj});
+    var c=pick('controls.py');
+    if(c)secs.push({name:pre+'Controls',tabs:[{id:'h'+hn.id+':controls',label:'controls.py',dl:(hosts.length>1?'pi'+hn.id+'-':'')+'controls.py',code:c.code,note:c.note}]});
+    mountedOn(hn.id).forEach(function(p){
+      if(!ADDONS[p.type].layout)return;
+      var g=genScripts(p),nm=ADDONS[p.type].short+' #'+p.id;
+      if(!g.list){secs.push({name:pre+nm,tabs:[],msg:g.msg});return}
+      var loop=screenLoop(p);
+      secs.push({name:pre+nm,tabs:g.list.map(function(s){
+        var isLoop=loop&&((p.type==='eink'&&s.id==='part')||(p.type!=='eink'&&s.id==='live'));
+        return{id:'s'+p.id+':'+s.id,label:s.label,dl:isLoop?loop.file:ADDONS[p.type].short.toLowerCase().replace(/[^a-z0-9]/g,'')+'-'+p.id+'-'+s.file,code:s.code,note:s.note};
+      })});
+    });
+  });
+  return secs;
+}
+function openConsole(spec){
+  if(spec){
+    if(spec.indexOf(':')<0){var hs=piHosts();spec=hs.length?'h'+hs[0].id+':'+spec:null}
+    if(spec)CON.tab=spec;
+  }
+  CON.open=true;$('#con').classList.add('open');renderConsole(true);setTimeout(drawMini,50);
+}
+function openScreenConsole(n){
+  var g=genScripts(n);
+  openConsole('s'+n.id+':'+(g.list?(g.list.some(function(x){return x.id==='render'})?'render':g.list[0].id):'render'));
+}
+function closeConsole(){CON.open=false;$('#con').classList.remove('open');setTimeout(drawMini,50)}
+function renderConsole(force){
+  if(!CON.open||!P)return;
+  var secs=conSections(),flat=[];
+  secs.forEach(function(s){s.tabs.forEach(function(t){flat.push(t)})});
+  var cur=flat.filter(function(t){return t.id===CON.tab})[0]||flat[0];
+  CON.tab=cur?cur.id:null;
+  var sig=JSON.stringify([CON.tab,flat.map(function(t){return t.id+'|'+t.code}),secs.map(function(s){return s.name+(s.msg||'')})]);
+  if(!force&&sig===CON.sig)return;CON.sig=sig;
+  var body=$('#conBody'),oldPre=body.querySelector('pre'),st=oldPre?oldPre.scrollTop:0,oldTab=body._tab;
+  body.innerHTML='';body._tab=CON.tab;
+  if(!secs.length){body.appendChild(h('div',{class:'note',style:'padding:14px',text:'Add a Pi to the canvas first. Scripts for everything mounted on it show up here, one tab each, and update as you edit.'}));return}
+  var tabs=h('div',{id:'conTabs'});
+  secs.forEach(function(s){
+    tabs.appendChild(h('div',{class:'sec',style:'margin:10px 0 4px',text:s.name}));
+    if(s.msg)tabs.appendChild(h('div',{class:'note',style:'margin:0',text:s.msg}));
+    var row=h('div',{class:'flex'});
+    s.tabs.forEach(function(t){row.appendChild(h('button',{class:'btn sm'+(t.id===CON.tab?' on':''),text:t.label,onclick:function(){CON.tab=t.id;renderConsole(true)}}))});
+    tabs.appendChild(row);
+  });
+  body.appendChild(tabs);
+  if(cur){
+    var pane=h('div',{id:'conPane'});
+    pane.appendChild(h('div',{class:'note',style:'margin:0 0 6px',text:cur.dl+'. '+cur.note}));
+    var pre=h('pre',{class:'code',text:cur.code});pane.appendChild(pre);
+    pane.appendChild(h('div',{class:'flex',style:'margin-top:8px'},[
+      h('button',{class:'btn sm',text:'Copy',onclick:function(){copyText(cur.code)}}),
+      h('button',{class:'btn sm',text:'Download',onclick:function(){download(cur.dl,cur.code+'\n',/\.sh$/.test(cur.dl)?'text/x-shellscript':'text/x-python')}}),
+      h('button',{class:'btn sm',text:'Download all',onclick:function(){flat.forEach(function(x,i){setTimeout(function(){download(x.dl,x.code+'\n',/\.sh$/.test(x.dl)?'text/x-shellscript':'text/x-python')},i*400)})}})]));
+    body.appendChild(pane);
+    if(oldTab===CON.tab)pre.scrollTop=st;
+  }
+}
+function openControls(){openConsole('controls')}
+function openRun(){openConsole('main')}
+function openProjectSetup(){openConsole('setup')}
+$('#btnCon').addEventListener('click',function(){CON.open?closeConsole():openConsole()});
+$('#conClose').addEventListener('click',closeConsole);
+/* ---------- wiring up the page ---------- */
+$('#btnAdd').addEventListener('click',openPalette);
+$('#btnFit').addEventListener('click',fitView);
+$('#btnUndo').addEventListener('click',undo);
+$('#btnRedo').addEventListener('click',redo);
+$('#btnMenu').addEventListener('click',openMenu);
+$('#projSel').addEventListener('change',function(e){setProject(e.target.value)});
+document.addEventListener('keydown',function(e){
+  var t=e.target&&e.target.tagName;if(t==='INPUT'||t==='TEXTAREA'||t==='SELECT')return;
+  if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();delSel()}
+  else if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo()}
+});
+window.addEventListener('resize',drawMini);
+setInterval(function(){if(P&&P.nodes.some(function(n){return n.type==='timer'&&n.props.run}))refresh()},300);
+
+load();
+P=S.projects.filter(function(p){return p.id===S.cur})[0]||S.projects[0];S.cur=P.id;
+projList();renderAll();commitNow();
+setTimeout(function(){if(S.projects.length&&P.name==='Welcome'&&!localStorage.getItem(KEY+'.fit')){fitView();try{localStorage.setItem(KEY+'.fit','1')}catch(e){}}},50);
+
+window.__sandbox={get P(){return P},ADDONS:ADDONS,setupLines:setupLines,openPart:openPart,openCatalog:openCatalog,openProjectSetup:openProjectSetup,openControls:openControls,openIdeas:openIdeas,libFor:libFor,genPhotoLib:genPhotoLib,openConsole:openConsole,renderConsole:renderConsole,conSections:conSections,CON:CON,openRun:openRun,openStarters:openStarters,projectFiles:projectFiles,startStarter:startStarter,STARTERS:STARTERS,claimsOf:claimsOf,ICON_DEFS:ICON_DEFS,ideas:ideas,genControls:genControls,actionOptions:actionOptions,libOn:libOn,TY:TY,refresh:refresh,fit:fit,genScripts:genScripts,cache:function(){return cache},simFire:simFire,MOCKSHOT:MOCKSHOT,addNode:addNode,select:select,setProject:setProject,newProject:newProject};
+})();
+</script>
+</body>
+</html>
