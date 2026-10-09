@@ -410,7 +410,7 @@ function dispUpd(n){
   var cx=n.rt.cv&&n.rt.cv.getContext&&n.rt.cv.getContext('2d');if(cx)paintDisplay(cx,n,[],null);
 }
 def('eink',{sink:true,cat:'hw',title:'E-ink 2.13 V4',desc:'Add-on. Layout canvas, scripts, panel notes.',w:220,
-  ins:[{n:'in1',t:'any',d:'87'},{n:'in2',t:'any',d:'42'},{n:'in3',t:'any',d:''}],outs:[{n:'width',t:'num'},{n:'height',t:'num'}],
+  ins:[{n:'in1',t:'any',d:'87'},{n:'in2',t:'any',d:'42'},{n:'in3',t:'any',d:''},{n:'invert',t:'bool',d:false}],outs:[{n:'width',t:'num'},{n:'height',t:'num'}],
   props:function(){return{mount:null,def:{},dsp:dspDefaults('eink')}},
   ev:function(){return[250,122]},body:dispBody,upd:dispUpd});
 def('lcd',{sink:true,cat:'hw',title:'LCD 1.44 HAT',desc:'Add-on. Color layout, joystick and keys.',w:220,
@@ -549,7 +549,7 @@ var PARTS=[
  {id:'p_ssd1306',title:'SSD1306 OLED',short:'OLED',cat:'disp',desc:'128 x 64 (or 128 x 32) monochrome OLED over I2C. Sharp, self-lit, tiny.',ifaces:['I2C'],hosts:['zero2','pi5','esp'],why:{},
   claims:[{g:2,r:'SDA',sh:1},{g:3,r:'SCL',sh:1}],addr:['0x3C','0x3D'],layout:{w:128,h:64,mono:true},
   variants:[{name:'0.96 in, 128 x 64',note:'The common one. The layout canvas is sized for this.'},{name:'0.91 in, 128 x 32',note:'Half the height. Keep elements in the top 32 rows.'}],
-  ins:[{n:'in1',t:'any',d:'42'},{n:'in2',t:'any',d:''},{n:'in3',t:'any',d:''}],outs:[],
+  ins:[{n:'in1',t:'any',d:'42'},{n:'in2',t:'any',d:''},{n:'in3',t:'any',d:''},{n:'invert',t:'bool',d:false}],outs:[],
   needs:[{t:'Enable I2C',ok:0,host:['zero2','pi5']},{t:'Address is usually 0x3C, some modules use 0x3D',ok:0},{t:'On the ESP32-S3 wire SDA and SCL to any two free GPIO',ok:0,host:['esp']}],
   libs:[{id:'luma',name:'luma.oled',what:'Driver and drawing helpers. Used by the generated scripts',lang:'Python',pm:'pip',pkg:'luma.oled',ok:0,def:1},LIB_PIL,LIB_FONT,
     adaLib('adassd','Adafruit SSD1306','CircuitPython driver. Alternative to luma.oled','adafruit-circuitpython-ssd1306',0),
@@ -1596,9 +1596,9 @@ function dcfg(n){var A=ADDONS[n.type];return A&&A.layout?A.layout:{w:128,h:128,m
 function inVals(n){var ev=cache[n.id];return ev?ev.ins:[]}
 function subst(s,ins){return String(s).replace(/\{in([1-3])\}/g,function(m,i){return fmt(ins[parseInt(i,10)-1])})}
 function paintDisplay(ctx,n,bbs,selIdx){
-  var c=dcfg(n),d=n.props.dsp,ins=inVals(n),mono=c.mono;
-  ctx.fillStyle=mono?(d.invert?'#000':'#fff'):d.bg;ctx.fillRect(0,0,c.w,c.h);
-  var fg=function(el){return mono?(d.invert?'#fff':'#000'):el.c};
+  var c=dcfg(n),d=n.props.dsp,ins=inVals(n),mono=c.mono,inv=mono&&invOf(n);
+  ctx.fillStyle=mono?(inv?'#000':'#fff'):d.bg;ctx.fillRect(0,0,c.w,c.h);
+  var fg=function(el){return mono?(inv?'#fff':'#000'):el.c};
   d.els.forEach(function(el,i){
     ctx.fillStyle=fg(el);ctx.strokeStyle=fg(el);ctx.lineWidth=1;
     if(el.t==='text'){
@@ -1647,6 +1647,55 @@ function pyF(s){
   while((m=re.exec(s))){out+=esc(s.slice(last,m.index))+'{in'+m[1]+'}';last=re.lastIndex}
   out+=esc(s.slice(last));return (has?'f':'')+"'"+out+"'";
 }
+/* ---------- live logic in generated scripts, and refresh settings ---------- */
+function rfOf(n){
+  var d=n.props.dsp,r=d.refresh||{},ei=n.type==='eink';
+  var every=Number(r.every);if(!(every>0))every=ei?10:1;
+  var fe=r.fullEvery===undefined?20:Number(r.fullEvery);if(!(fe>=0))fe=20;
+  return{every:every,mode:r.mode==='full'?'full':'partial',fullEvery:Math.floor(fe),skip:r.skip!==false};
+}
+function invOf(n){
+  var d=n.props.dsp,t=TY[n.type];
+  var w=t&&t.ins.length>3&&t.ins[3].n==='invert'?truthy(inVals(n)[3]):false;
+  return !!d.invert!==w;
+}
+/* Turns a wired Timer / Math / Compare / Select chain into a Python expression, so the Pi recomputes it live. */
+function livePy(node,port,depth,st){
+  depth=depth||0;
+  if(depth>8||!node)return null;
+  var ev=cache[node.id];if(!ev)return null;
+  function konst(){return pyLit(ev.outs[port])}
+  function inp(i){
+    var w=INW[node.id+':'+i];
+    if(!w)return pyLit(ev.ins[i]);
+    var sub=livePy(NM[w.from.n],w.from.p,depth+1,st);
+    return sub===null?pyLit(cache[node.id]&&cache[node.id].ins[i]):sub;
+  }
+  if(node.type==='timer'){
+    if(!node.props.run)return konst();
+    st.timer=true;return 'int((time.time() - START) / '+Math.max(0.05,Number(node.props.period)||1)+')';
+  }
+  if(node.type==='math'){
+    var a=inp(0),b=inp(1);function nz(v){return /^-?\d+(\.\d+)?$/.test(v)&&parseFloat(v)!==0}
+    switch(node.props.op){case'add':return '('+a+' + '+b+')';case'sub':return '('+a+' - '+b+')';case'mul':return '('+a+' * '+b+')';
+      case'div':return nz(b)?'('+a+' / '+b+')':'('+a+' / '+b+' if '+b+' else 0)';case'min':return 'min('+a+', '+b+')';case'max':return 'max('+a+', '+b+')';
+      case'pow':return '('+a+' ** '+b+')';default:return nz(b)?'('+a+' % '+b+')':'('+a+' % '+b+' if '+b+' else 0)'}
+  }
+  if(node.type==='compare'){
+    var o={gt:'>',lt:'<',ge:'>=',le:'<=',eq:'==',ne:'!='}[node.props.op]||'>';
+    return '('+inp(0)+' '+o+' '+inp(1)+')';
+  }
+  if(node.type==='select')return '('+inp(1)+' if '+inp(0)+' else '+inp(2)+')';
+  return konst();
+}
+function liveSrc(n,i,st){
+  var w=INW[n.id+':'+i];if(!w)return null;
+  var s=NM[w.from.n];
+  if(!/^(timer|math|compare|select)$/.test(s.type))return null;
+  var probe={};var e=livePy(s,w.from.p,0,probe);
+  if(!probe.timer)return null;
+  livePy(s,w.from.p,0,st);return e;
+}
 function srcInfo(n,i){
   var w=INW[n.id+':'+i];if(!w)return{kind:'def'};
   var s=NM[w.from.n];
@@ -1661,9 +1710,10 @@ function genScripts(n){
   if(!host)return{msg:'Mount this on a Pi in the node first. Scripts are generated for the host it is mounted on.'};
   if(host.type==='esp')return{msg:'Scripts for the ESP32-S3 are not generated yet. The layout still works, and you can export it as a PNG.'};
   var d=n.props.dsp,c=dcfg(n),ev=cache[n.id],mono=c.mono,pi5=host.type==='pi5';
-  var needBat=false,needCpu=false,assign=[],sens=[],usedIcons={};
+  var needBat=false,needCpu=false,assign=[],sens=[],usedIcons={},lst={},rf=rfOf(n);
   for(var i=0;i<3;i++){
-    var si=srcInfo(n,i),nm='in'+(i+1);
+    var si=srcInfo(n,i),nm='in'+(i+1),lx=(si.kind==='snap')?liveSrc(n,i,lst):null;
+    if(lx){assign.push(nm+' = '+lx+'  # live from '+TY[si.from.type].title);continue}
     if(si.kind==='battery'){needBat=true;assign.push(nm+' = battery_pct()')}
     else if(si.kind==='cpu'){needCpu=true;assign.push(nm+' = cpu_temp()')}
     else if(si.kind==='photolib'){sens.push({id:'lib',imp:['import photolib'],init:[],expr:'x'});assign.push(nm+' = photolib.'+['count','index','current_name'][si.p]+'()  # live from the photo library')}
@@ -1671,7 +1721,13 @@ function genScripts(n){
     else if(si.kind==='snap')assign.push(nm+' = '+pyLit(ev.ins[i])+'  # from '+TY[si.from.type].title+' at export time')
     else assign.push(nm+' = '+pyLit(ev.ins[i]));
   }
-  var helpers=[];
+  var helpers=[],invLive=false;
+  if(mono&&TY[T].ins.length>3&&INW[n.id+':3']){
+    var ix=liveSrc(n,3,lst),iv0=d.invert?'True':'False';
+    assign.push('invert = ('+(ix||pyLit(truthy(ev.ins[3])))+" not in (None, '', 0, False, 'false')) != "+iv0+(ix?'  # live from the Invert input':'  # from the Invert input at export time'));
+    assign.push('bg, fg = (0, 255) if invert else (255, 0)');invLive=true;
+  }
+  if(lst.timer)helpers.push('import time','START = time.time()   # when this script started. Timers count from here','');
   if(needCpu)helpers.push('def cpu_temp():',"    with open('/sys/class/thermal/thermal_zone0/temp') as f:",'        return round(int(f.read()) / 1000, 1)','');
   if(needBat)helpers.push('import socket','','def battery_pct():','    # needs pisugar-power-manager running (see docs.pisugar.com)',"    s = socket.create_connection(('127.0.0.1', 8423), timeout=2)","    s.sendall(b'get battery\\n')",'    reply = s.recv(64).decode()','    s.close()',"    return round(float(reply.split(':')[1]), 1)",'');
   var seenS={};sens.forEach(function(x){if(seenS[x.id])return;seenS[x.id]=1;x.imp.forEach(function(l){if(helpers.indexOf(l)<0)helpers.push(l)})});
@@ -1688,7 +1744,7 @@ function genScripts(n){
     pp.push("    shot = shot.convert('RGB').resize((w, h))","    img.paste(shot.convert('1') if img.mode == '1' else shot, (x, y))",'','');
     pp.forEach(function(l){helpers.push(l)});
   }
-  var bg=mono?(d.invert?'0':'255'):pyStr(d.bg),fgM=mono?(d.invert?'255':'0'):null;
+  var bg=mono?(invLive?'bg':(d.invert?'0':'255')):pyStr(d.bg),fgM=mono?(invLive?'fg':(d.invert?'255':'0')):null;
   function fgOf(el){return mono?fgM:pyStr(el.c)}
   var els=[];
   d.els.forEach(function(el){
@@ -1710,20 +1766,32 @@ function genScripts(n){
     var frame=['def font(size):',"    return ImageFont.truetype(PIC + '/Font.ttc', size)",'','']
       .concat(helpers,['def draw_frame():'],assign.map(function(a){return '    '+a}),["    img = Image.new('1', (epd.height, epd.width), "+bg+')','    d = ImageDraw.Draw(img)'],els.map(function(e){return '    '+e}),['    return img','','']);
     render=fnl(pre.concat(frame,['epd = epd2in13_V4.EPD()','epd.init()','epd.display(epd.getbuffer(draw_frame()))','epd.sleep()']));
-    part=fnl(pre.concat(frame,['epd = epd2in13_V4.EPD()','epd.init()','epd.displayPartBaseImage(epd.getbuffer(draw_frame()))','','try:','    while True:','        time.sleep(10)','        epd.displayPartial(epd.getbuffer(draw_frame()))','except KeyboardInterrupt:','    epd.init()','    epd.sleep()']));
+    part=fnl(pre.concat(frame,[
+      'REFRESH_SECONDS = '+rf.every+'      # how often to redraw',
+      'PARTIAL = '+(rf.mode==='partial'?'True':'False')+'            # True: quick partial updates. False: full refresh every time (slow, flashes)',
+      'FULL_REFRESH_EVERY = '+rf.fullEvery+'    # do a full refresh after this many updates to clear ghosting (0 = never)',
+      'SKIP_UNCHANGED = '+(rf.skip?'True':'False')+'   # do not touch the panel when the picture has not changed','',
+      'epd = epd2in13_V4.EPD()','epd.init()','last = draw_frame()','epd.displayPartBaseImage(epd.getbuffer(last))','updates = 0','',
+      'try:','    while True:','        time.sleep(REFRESH_SECONDS)','        frame = draw_frame()',
+      '        if SKIP_UNCHANGED and frame.tobytes() == last.tobytes():','            continue',
+      '        last = frame','        updates += 1',
+      '        if not PARTIAL or (FULL_REFRESH_EVERY and updates % FULL_REFRESH_EVERY == 0):',
+      '            epd.init()','            epd.displayPartBaseImage(epd.getbuffer(frame))   # full refresh, and resets the partial baseline','        else:',
+      '            epd.displayPartial(epd.getbuffer(frame))',
+      'except KeyboardInterrupt:','    epd.init()','    epd.sleep()']));
     out=[{id:'setup',label:'Setup',file:'setup.sh',code:setup,note:'Run once on the Pi. Enables SPI and fetches the Waveshare driver.'},
       {id:'init',label:'Init and clear',file:'init_clear.py',code:init,note:'Wipes the panel to white, then puts it to sleep.'},
       {id:'render',label:'Render layout',file:'render.py',code:render,note:'Rebuilt from the canvas above every time you change it. Fonts use the Waveshare pic folder.'},
-      {id:'part',label:'Partial refresh',file:'partial_refresh.py',code:part,note:'Quick updates every 10 seconds. Do a full refresh now and then to clear ghosting, and always call sleep() when done. Wait between refreshes as the Waveshare docs recommend.'}];
+      {id:'part',label:'Refresh loop',file:'partial_refresh.py',code:part,note:'Redraws every '+rf.every+' s ('+(rf.mode==='partial'?'partial refresh, full refresh every '+(rf.fullEvery||'never')+' updates':'full refresh each time')+'). Change the four settings at the top, or in the Refresh section of the layout page. Always call sleep() when done, and wait between refreshes as the Waveshare docs recommend.'+(rf.every<3&&rf.mode==='full'?' A full refresh takes about 2 seconds, so this interval is too short for it.':'')}];
   }else if(T==='p_ssd1306'){
     pre=['from luma.core.interface.serial import i2c','from luma.oled.device import ssd1306','from PIL import Image, ImageDraw, ImageFont','import time',''];
     setup=fnl(['#!/bin/bash'].concat(setupLines([{A:ADDONS[T],on:function(l){return libOn(n,l)},host:host.type}])));
     var fr2=['serial = i2c(port=1, address=0x3C)','device = ssd1306(serial)','','def font(size):',"    return ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', size)",'',''].concat(helpers,['def draw_frame():'],assign.map(function(a){return '    '+a}),["    img = Image.new('1', (device.width, device.height), "+bg+')','    d = ImageDraw.Draw(img)'],els.map(function(e){return '    '+e}),['    return img','','']);
     render=fnl(pre.concat(fr2,['device.display(draw_frame())']));
-    var live=fnl(pre.concat(fr2,['while True:','    device.display(draw_frame())','    time.sleep(1)']));
+    var live=fnl(pre.concat(fr2,['REFRESH_SECONDS = '+rf.every+'   # how often to redraw','while True:','    device.display(draw_frame())','    time.sleep(REFRESH_SECONDS)']));
     out=[{id:'setup',label:'Setup',file:'setup.sh',code:setup,note:'Run once on the Pi. Turns on I2C and installs the selected libraries.'},
       {id:'render',label:'Render layout',file:'render.py',code:render,note:'Draws the layout once. The I2C address is usually 0x3C. Change it if your module uses 0x3D.'},
-      {id:'live',label:'Live loop',file:'live.py',code:live,note:'Redraws every second, so wired values stay current.'}];
+      {id:'live',label:'Live loop',file:'live.py',code:live,note:'Redraws every '+rf.every+' s, so wired values stay current. Change REFRESH_SECONDS at the top.'}];
   }else{
     pre=['import sys',"sys.path.append('1.44inch-LCD-HAT-Code/RaspberryPi/python')   # adjust to where you unpacked the demo",'import LCD_1in44','from PIL import Image, ImageDraw, ImageFont',''];
     setup=fnl(['sudo raspi-config nonint do_spi 0','sudo apt update'].concat(apt,['sudo apt install -y fonts-dejavu-core','sudo apt install -y p7zip-full','wget https://files.waveshare.com/upload/f/fa/1.44inch-LCD-HAT-Code.7z','7z x 1.44inch-LCD-HAT-Code.7z']));
@@ -1731,11 +1799,11 @@ function genScripts(n){
     var fr=['def font(size):',"    return ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', size)",'','']
       .concat(helpers,['def draw_frame():'],assign.map(function(a){return '    '+a}),["    img = Image.new('RGB', (LCD.width, LCD.height), "+bg+')','    d = ImageDraw.Draw(img)'],els.map(function(e){return '    '+e}),['    return img','','']);
     render=fnl(pre.concat(fr,['LCD = LCD_1in44.LCD()','LCD.LCD_Init(LCD_1in44.SCAN_DIR_DFT)','LCD.LCD_ShowImage(draw_frame(), 0, 0)']));
-    var liveL=fnl(['import time'].concat(pre,fr,['LCD = LCD_1in44.LCD()','LCD.LCD_Init(LCD_1in44.SCAN_DIR_DFT)','while True:','    LCD.LCD_ShowImage(draw_frame(), 0, 0)','    time.sleep(1)']));
+    var liveL=fnl(['import time'].concat(pre,fr,['LCD = LCD_1in44.LCD()','LCD.LCD_Init(LCD_1in44.SCAN_DIR_DFT)','REFRESH_SECONDS = '+rf.every+'   # how often to redraw','while True:','    LCD.LCD_ShowImage(draw_frame(), 0, 0)','    time.sleep(REFRESH_SECONDS)']));
     out=[{id:'setup',label:'Setup',file:'setup.sh',code:setup,note:'Run once on the Pi. Enables SPI and installs fonts. The LCD driver comes from the Waveshare demo.'},
       {id:'init',label:'Init and clear',file:'init_clear.py',code:init,note:'Initializes the display and clears it.'},
       {id:'render',label:'Render layout',file:'render.py',code:render,note:'Rebuilt from the canvas above. Function names follow the Waveshare demo, so check them against your copy.'},
-      {id:'live',label:'Live loop',file:'live.py',code:liveL,note:'Redraws every second, so wired values stay current.'}];
+      {id:'live',label:'Live loop',file:'live.py',code:liveL,note:'Redraws every '+rf.every+' s, so wired values stay current. Change REFRESH_SECONDS at the top.'}];
   }
   return{list:out};
 }
@@ -1824,6 +1892,26 @@ function openDisplay(n){
     if(c.mono){var iv=h('input',{type:'checkbox'});iv.checked=!!d.invert;iv.addEventListener('change',function(){d.invert=iv.checked;ch()});st.appendChild(h('label',{text:'Invert'}));st.appendChild(iv)}
     else{var bgc=h('input',{type:'color',value:d.bg});bgc.addEventListener('input',function(){d.bg=bgc.value;ch()});st.appendChild(h('label',{text:'Background'}));st.appendChild(bgc)}
     b.appendChild(st);
+    if(c.mono)b.appendChild(h('div',{class:'note',text:'Wire a value into the screen\'s Invert input to flip it. A Timer into Math (a mod b, b = 2) gives 0, 1, 0, 1 and flips it every period. The checkbox is the starting state.'}));
+    b.appendChild(h('div',{class:'sec',text:'Refresh'}));
+    var rfBox=h('div',{class:'f2'});b.appendChild(rfBox);
+    function rset(k,v){d.refresh=d.refresh||{};d.refresh[k]=v;ch();drawRf()}
+    function drawRf(){
+      var r=rfOf(n);rfBox.innerHTML='';
+      var ev=h('input',{type:'number',min:'0.1',step:'any',value:String(r.every)});ev.addEventListener('change',function(){var v=parseFloat(ev.value);if(v>0)rset('every',v)});
+      rfBox.appendChild(h('label',{text:'Redraw every (seconds)'}));rfBox.appendChild(ev);
+      if(n.type==='eink'){
+        var ms=h('select');[['partial','Partial (quick)'],['full','Full (slow, flashes)']].forEach(function(o){ms.appendChild(h('option',{value:o[0],text:o[1]}))});ms.value=r.mode;ms.addEventListener('change',function(){rset('mode',ms.value)});
+        rfBox.appendChild(h('label',{text:'Refresh type'}));rfBox.appendChild(ms);
+        var fe=h('input',{type:'number',min:'0',step:'1',value:String(r.fullEvery)});fe.addEventListener('change',function(){var v=parseInt(fe.value,10);if(v>=0)rset('fullEvery',v)});
+        rfBox.appendChild(h('label',{text:'Full refresh every N updates (0 = never)'}));rfBox.appendChild(fe);
+        var sk=h('input',{type:'checkbox'});sk.checked=r.skip;sk.addEventListener('change',function(){rset('skip',sk.checked)});
+        rfBox.appendChild(h('label',{text:'Skip if nothing changed'}));rfBox.appendChild(sk);
+        var warn=r.mode==='full'&&r.every<3?'A full refresh takes about 2 seconds, so this interval is too short for full mode.':(r.mode==='partial'&&r.every<1?'Under 1 second is faster than the panel can reliably update.':'');
+        if(warn)rfBox.appendChild(h('div',{class:'note msg-bad',style:'grid-column:1/-1',text:warn}));
+      }
+    }
+    drawRf();
     b.appendChild(h('div',{class:'flex'},[h('button',{class:'btn sm',text:'Export layout as PNG',onclick:function(){
       if(!cv.toBlob){toast('PNG export is not available here');return}
       cv.toBlob(function(bl){if(!bl)return;var a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download=slug(P.name)+'-'+n.type+'.png';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500)})
