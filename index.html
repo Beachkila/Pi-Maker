@@ -3,17 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Makers sandbox</title>
+<title>Studio Wetware Pi-Maker</title>
 <style>
 :root{
-  --bg:#f4f3ef;--panel:#ffffff;--line:rgba(0,0,0,.16);--text:#1f1f1d;--mut:#6b6a64;--dot:rgba(0,0,0,.12);
+  --bg:#ffffff;--panel:#ffffff;--line:rgba(0,0,0,.22);--rule:#000;--text:#000;--mut:#5c5c5c;--dot:rgba(0,0,0,.14);
+  --accent:#000;--on-accent:#fff;
   --hw:#D85A30;--logic:#1D9E75;--data:#BA7517;--view:#7F77DD;--ok:#1D9E75;--bad:#C0392B;
   --t-num:#1D9E75;--t-bool:#7F77DD;--t-text:#BA7517;--t-any:#888780;
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--gndc:#2F2F2F;
 }
 @media (prefers-color-scheme:dark){
-  :root{--gndc:#C9C9C9;--bg:#1a1a18;--panel:#262624;--line:rgba(255,255,255,.18);--text:#ecebe5;--mut:#a3a199;--dot:rgba(255,255,255,.1)}
+  :root{--gndc:#C9C9C9;--bg:#000;--panel:#000;--line:rgba(255,255,255,.28);--rule:#fff;--text:#fff;--mut:#a8a8a8;--dot:rgba(255,255,255,.16);--accent:#fff;--on-accent:#000}
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;-webkit-text-size-adjust:100%}
@@ -141,28 +142,112 @@ pre.code{font-family:var(--mono);font-size:12px;line-height:1.5;white-space:pre-
 #conPane pre.code{flex:1;min-height:0;overflow:auto;margin:0}
 @media (max-width:820px){#con{position:absolute;right:0;top:0;bottom:0;width:min(100%,460px);z-index:40;box-shadow:-4px 0 16px rgba(0,0,0,.18)}}
 select.sm{height:34px;border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:0 8px;font-size:14px}
+
+/* ---- Studio Wetware skin: black and white, one accent variable ---- */
+:root{--r:2px}
+body{font-size:14px}
+input,select,textarea{accent-color:var(--accent)}
+#top{height:44px;padding:0 0 0 12px;padding-top:env(safe-area-inset-top);gap:6px;border-bottom:1px solid var(--rule);box-sizing:content-box}
+.brand{font-weight:800;letter-spacing:.18em;font-size:12px;text-transform:uppercase;white-space:nowrap;margin-right:8px;user-select:none;cursor:pointer;background:none;border:0;padding:0;color:var(--text)}
+.brand small{font-weight:500;letter-spacing:.06em;color:var(--mut);margin-left:8px;text-transform:none;font-size:11px}
+#menus{display:flex;align-self:stretch}
+.mb{background:none;border:0;border-radius:0;padding:0 11px;font-size:13px;color:var(--text)}
+.mb:hover,.mb.on{background:var(--accent);color:var(--on-accent)}
+#projSel{flex:0 1 210px;height:30px;border-radius:var(--r);background:var(--panel);border:1px solid var(--rule);font-size:13px;font-weight:600;margin-left:6px}
+#topsp{flex:1}
+#top .ib{height:44px;width:40px;border:0;border-left:1px solid var(--line);border-radius:0;background:none}
+#top .ib:hover:not(:disabled){background:var(--accent);color:var(--on-accent)}
+#top .ib.on{background:var(--accent);color:var(--on-accent)}
+#btnHam{display:none;font-size:20px;border-left:0!important}
+.btn,.ib,select.sm,.crow,.tile,.pin,pre.code,.dv,.bdg{border-radius:var(--r)}
+.btn{background:var(--panel);border-color:var(--rule)}
+.btn.sm{border-color:var(--line)}
+.btn:hover{background:color-mix(in srgb,var(--text) 8%,var(--panel))}
+.btn.pri,.btn.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.node{border-radius:4px;box-shadow:none;border-color:var(--rule)}
+.node.sel{outline:2px solid var(--accent)}
+.nhead{border-radius:3px 3px 0 0;background:color-mix(in srgb,var(--cat) 13%,var(--panel));border-bottom-color:var(--rule)}
+.ntitle{letter-spacing:.01em}
+#sheet{border-radius:0;border-color:var(--rule);box-shadow:0 -6px 0 rgba(0,0,0,.08)}
+#shHead{border-bottom-color:var(--rule)}
+#shTitle{text-transform:uppercase;letter-spacing:.14em;font-size:12px}
+.sec{text-transform:uppercase;letter-spacing:.12em;font-size:11px}
+#selbar{border-radius:var(--r);border-color:var(--rule);box-shadow:3px 3px 0 rgba(0,0,0,.18);bottom:16px;left:calc((100% - var(--conw,30px))/2);transform:translateX(-50%)}
+#toast{bottom:calc(24px + env(safe-area-inset-bottom));border-radius:var(--r)}
+#main{--cw:460px;--conw:30px}
+#hint{position:absolute;left:12px;bottom:10px;pointer-events:none;max-width:60%;z-index:1}
+#dd{position:fixed;z-index:25;min-width:250px;max-width:92vw;background:var(--panel);border:1px solid var(--rule);box-shadow:4px 4px 0 rgba(0,0,0,.16);padding:4px 0;display:none}
+#dd.open{display:block}
+.ddi{display:flex;justify-content:space-between;gap:24px;width:100%;padding:8px 16px;border:0;background:none;text-align:left;font-size:13px;color:var(--text);border-radius:0}
+.ddi:hover:not(:disabled){background:var(--accent);color:var(--on-accent)}
+.ddi:disabled{opacity:.38;cursor:default}
+.ddi i{font-style:normal;color:var(--mut);font-size:11px;font-family:var(--mono)}
+.ddi:hover:not(:disabled) i{color:inherit}
+.dds{height:1px;background:var(--line);margin:4px 0}
+#hamBack{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:34;display:none}
+#ham{position:fixed;left:0;top:0;bottom:0;width:min(88vw,340px);background:var(--panel);border-right:1px solid var(--rule);z-index:35;overflow:auto;transform:translateX(-102%);transition:transform .18s;padding-bottom:env(safe-area-inset-bottom)}
+#ham.open{transform:none}
+#hamBack.open{display:block}
+#ham .hh{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--rule)}
+#ham .hg{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);padding:14px 16px 4px}
+#ham .ddi{padding:10px 16px;font-size:14px}
+/* console: docked right sidebar */
+#con{position:relative;display:flex;flex-direction:row;flex:none;width:var(--conw,30px);max-width:none;min-height:0;border-left:1px solid var(--rule);background:var(--panel)}
+#con.open{width:var(--cw)}
+#conRail{width:29px;flex:none;display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:10px;background:none;border:0;color:var(--text);cursor:pointer}
+#conRail:hover{background:var(--accent);color:var(--on-accent)}
+#conRail span{writing-mode:vertical-rl;letter-spacing:.2em;font-size:11px;font-weight:700;text-transform:uppercase}
+#conRail b{font-family:var(--mono);font-size:13px}
+#conPanel{display:none;flex:1;min-width:0;flex-direction:column;min-height:0}
+#con.open #conPanel{display:flex}
+#con.open #conRail{display:none}
+#conGrip{position:absolute;left:-4px;top:0;bottom:0;width:8px;cursor:col-resize;z-index:3;touch-action:none}
+#conGrip:hover,#conGrip.drag{background:var(--accent);opacity:.5}
+#con:not(.open) #conGrip{display:none}
+#conHead{border-bottom-color:var(--rule);padding:0 0 0 12px;height:36px}
+#conHead b{text-transform:uppercase;letter-spacing:.14em;font-size:11px}
+#conClose{border:0;border-left:1px solid var(--line);height:36px;border-radius:0;padding:0 12px}
+body.cdrag{user-select:none;cursor:col-resize}
+@media (max-width:900px){
+  .brand,#menus{display:none}
+  #btnHam{display:block}
+  #top{padding-left:0}
+  #projSel{flex:1;margin-left:8px;margin-right:6px}
+  #topsp{display:none}
+  #con{position:absolute;right:0;top:0;bottom:0;width:100%!important;z-index:40;transform:translateX(100%);visibility:hidden;transition:transform .18s,visibility 0s .18s;border-left:0;box-shadow:none}
+  #con.open{transform:none;visibility:visible;transition:transform .18s}
+  #conRail,#conGrip{display:none!important}
+  #selbar{left:50%}
+  #hint{display:none}
+  .ddi i{display:none}
+}
 </style>
 </head>
 <body>
 <div id="top">
+  <button id="btnHam" class="ib" aria-label="Menu">&#9776;</button>
+  <button class="brand" id="brand" aria-label="About Studio Wetware">Studio Wetware<small>Pi-Maker</small></button>
+  <nav id="menus" aria-label="Menus"></nav>
   <select id="projSel" aria-label="Project"></select>
+  <span id="topsp"></span>
   <button id="btnUndo" class="ib" aria-label="Undo">&#8630;</button>
   <button id="btnRedo" class="ib" aria-label="Redo">&#8631;</button>
-  <button id="btnCon" class="ib" aria-label="Console" style="font-size:14px;font-family:var(--mono)">&gt;_</button>
-  <button id="btnMenu" class="ib" aria-label="Project menu">&#8943;</button>
+  <button id="btnCon" class="ib" aria-label="Toggle console" title="Console" style="font-size:14px;font-family:var(--mono)">&gt;_</button>
 </div>
+<div id="dd" role="menu"></div>
+<div id="hamBack"></div>
+<div id="ham" aria-label="Menu"></div>
 <div id="main"><div id="vp">
   <div id="world"><svg id="wires"></svg><svg id="wtmp"><path id="tmpw" class="tmp" d=""/></svg></div>
   <canvas id="mini" width="192" height="128"></canvas>
-</div>
-<aside id="con"><div id="conHead"><b>Console</b><button id="conClose" class="btn sm">Close</button></div><div id="conBody"></div></aside>
-</div>
-<div id="selbar"></div>
-<div id="bar">
-  <button id="btnAdd" class="btn pri">+ Add</button>
-  <button id="btnFit" class="btn">Fit</button>
-  <button id="btnKey" class="btn">Key</button>
   <span id="hint">Drag a header to move. Drag from a dot to wire. Pinch to zoom.</span>
+</div>
+<aside id="con">
+  <div id="conGrip" title="Drag to resize"></div>
+  <button id="conRail" aria-label="Open console" title="Open console"><b>&#9666;</b><span>Console</span></button>
+  <div id="conPanel"><div id="conHead"><b>Console</b><button id="conClose" class="btn sm" aria-label="Collapse console">Collapse &#9656;</button></div><div id="conBody"></div></div>
+</aside>
+<div id="selbar"></div>
 </div>
 <div id="back"></div>
 <div id="sheet" role="dialog" aria-modal="true"><div id="shHead"><b id="shTitle"></b><button id="shClose" class="btn sm">Close</button></div><div id="shBody"></div></div>
@@ -180,6 +265,7 @@ var S=null,P=null,NM={},INW={},EL={},cache={},visiting={},sel=null,hist=[],hi=-1
 var TY={};
 
 function $(s,r){return (r||document).querySelector(s)}
+function $all(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))}
 function h(tag,a,kids){
   var e=document.createElement(tag);
   if(a)for(var k in a){var v=a[k];
@@ -2285,12 +2371,15 @@ $('#shClose').addEventListener('click',closeSheet);
 $('#back').addEventListener('click',closeSheet);
 
 var PAL=[['Hardware','hw',['zero2','pi5','esp']],['Add-ons','hw',['eink','lcd','ps']],['Inputs','in',['slider','toggle','text','timer']],['Logic','logic',['math','compare','select','code','action']],['Storage','in',['photolib']],['View','view',['readout','svgpad','parts','note']]];
-function openPalette(){
-  openSheet('Add a block',function(b){
+function openPalette(only){
+  openSheet(only?'Add '+only[0].toLowerCase():'Add a block',function(b){
+    if(!only){
     b.appendChild(h('button',{class:'btn pri',style:'display:block;width:100%;margin-bottom:6px',text:'Browse parts catalog',onclick:function(){openCatalog()}}));
     b.appendChild(h('button',{class:'btn',style:'display:block;width:100%;margin-bottom:6px',text:'Next steps for this project',onclick:openIdeas}));
     b.appendChild(h('button',{class:'btn',style:'display:block;width:100%;margin-bottom:6px',text:'Starter projects',onclick:openStarters}));
+    }
     PAL.forEach(function(sec){
+      if(only&&only.indexOf(sec[0])<0)return;
       b.appendChild(h('div',{class:'sec',text:sec[0]}));
       var g=h('div',{class:'grid2'});
       sec[2].forEach(function(id){
@@ -2681,32 +2770,127 @@ function openDisplay(n){
 }
 
 /* ---------- menu and project ops ---------- */
-function openMenu(){
-  openSheet('Project',function(b){
-    function item(t,fn){b.appendChild(h('button',{class:'btn',style:'display:block;width:100%;text-align:left;margin-bottom:8px',text:t,onclick:function(){closeSheet();fn()}}))}
-    item('New project',function(){var nm=prompt('Project name','Untitled');if(nm===null)return;newProject(nm||'Untitled')});
-    item('Rename project',function(){var nm=prompt('Project name',P.name);if(nm){P.name=nm;projList();saveSoon()}});
-    item('Duplicate project',function(){
-      var o=JSON.parse(JSON.stringify(serP(P)));o.id='p'+Date.now().toString(36);o.name=P.name+' copy';hydrate(o);S.projects.push(o);setProject(o.id);
-    });
-    item('Export this project (.json)',function(){download('makers-sandbox-'+slug(P.name)+'.json',JSON.stringify({kind:'makers-sandbox',v:1,project:serP(P)},null,1),'application/json')});
-    item('Export all projects (.json)',function(){download('makers-sandbox-all.json',JSON.stringify({kind:'makers-sandbox',v:1,projects:S.projects.map(serP)},null,1),'application/json')});
-    item('Import projects (.json)',function(){$('#file').click()});
-    item('Project setup script',openProjectSetup);
-    item('Next steps',openIdeas);
-    item('Run the whole project',openRun);
-    item('Download PDF guide (whole project)',downloadGuidePdf);
-    item('Starter projects',openStarters);
-    item('Controls script',openControls);
-    item('Delete this project',function(){
-      if(!confirm('Delete "'+P.name+'"? This cannot be undone.'))return;
-      S.projects=S.projects.filter(function(p){return p!==P});
-      if(!S.projects.length){var p=hydrate({id:'p'+Date.now().toString(36),name:'Untitled',nodes:[],wires:[],seq:1});S.projects.push(p)}
-      setProject(S.projects[0].id);
-    });
-    b.appendChild(h('div',{class:'note',text:'Projects save in this browser automatically. Export a file to back up or move a project to another device.'}));
+function renameProject(){var nm=prompt('Project name',P.name);if(nm){P.name=nm;projList();saveSoon()}}
+function dupProject(){
+  var o=JSON.parse(JSON.stringify(serP(P)));o.id='p'+Date.now().toString(36);o.name=P.name+' copy';hydrate(o);S.projects.push(o);setProject(o.id);
+}
+function delProject(){
+  if(!confirm('Delete "'+P.name+'"? This cannot be undone.'))return;
+  S.projects=S.projects.filter(function(p){return p!==P});
+  if(!S.projects.length){var p=hydrate({id:'p'+Date.now().toString(36),name:'Untitled',nodes:[],wires:[],seq:1});S.projects.push(p)}
+  setProject(S.projects[0].id);
+}
+function promptNewProject(){var nm=prompt('Project name','Untitled');if(nm===null)return;newProject(nm||'Untitled')}
+function exportOne(){download('makers-sandbox-'+slug(P.name)+'.json',JSON.stringify({kind:'makers-sandbox',v:1,project:serP(P)},null,1),'application/json')}
+function exportAll(){download('makers-sandbox-all.json',JSON.stringify({kind:'makers-sandbox',v:1,projects:S.projects.map(serP)},null,1),'application/json')}
+function openPinMap(){
+  var hs=P.nodes.filter(isHost),n=(sel&&sel.k==='n'&&NM[sel.id]&&isHost(NM[sel.id]))?NM[sel.id]:hs[0];
+  if(!n){toast('Add a Pi or ESP32 first');return}
+  openPins(n);
+}
+function addBreadboard(){addNode('p_bb')}
+function openAbout(){
+  openSheet('About',function(b){
+    b.appendChild(h('div',{style:'font-weight:800;letter-spacing:.2em;font-size:22px;text-transform:uppercase;margin:4px 0 2px',text:'Studio Wetware'}));
+    b.appendChild(h('div',{style:'letter-spacing:.14em;font-size:12px;text-transform:uppercase;color:var(--mut);margin-bottom:14px',text:'Develop Everything'}));
+    b.appendChild(h('div',{class:'note',style:'color:var(--text);font-size:14px',text:'Pi-Maker is a sandbox for planning electronics, code and generative art projects with Raspberry Pis and other small boards. Lay out blocks, wire them together, and get the setup steps and scripts to run it for real.'}));
+    b.appendChild(h('div',{class:'note',text:'It is one offline HTML file. Your projects live in this browser and nothing is sent anywhere. Export a file to back up or move a project.'}));
+    b.appendChild(h('div',{class:'note',text:'Code for vendor libraries is written from memory and has not been run on real hardware, so test it before you rely on it. MIT License, Studio Wetware.'}));
   });
 }
+function openHow(){
+  openSheet('How this works',function(b){
+    [['Add blocks','Add > Parts catalog or Starter projects. A Pi or ESP32 is the host; screens, sensors and other parts mount onto it.'],
+     ['Wire them','Drag from a dot on one block to a dot on another. Colors and shapes show the connection type; View > Connection key explains them.'],
+     ['Check the fit','Each part checks pins, ribbon cables and I2C addresses on its host and warns about conflicts. Add > Breadboard wires parts that are not HATs.'],
+     ['Get the code','View > Console opens the generated scripts beside the canvas, one tab each. Project > Setup script has the first-boot steps.'],
+     ['Take it with you','File > Download PDF guide builds a printable walkthrough of the whole project. Export saves the project as a file.']
+    ].forEach(function(x,i){
+      b.appendChild(h('div',{class:'item'},[h('div',{class:'t'},[h('b',{text:(i+1)+'. '+x[0]}),h('span',{text:x[1]})])]));
+    });
+  });
+}
+var MENUS=[
+ ['File',function(){return[
+  ['New project',promptNewProject],
+  ['Import projects…',function(){$('#file').click()}],
+  '-',
+  ['Export this project (.json)',exportOne],
+  ['Export all projects (.json)',exportAll],
+  '-',
+  ['Download PDF guide',downloadGuidePdf]]}],
+ ['Edit',function(){return[
+  ['Undo',undo,hi<=0,'Ctrl Z'],
+  ['Redo',redo,hi>=hist.length-1,'Ctrl Shift Z'],
+  '-',
+  ['Duplicate block',dupSel,!(sel&&sel.k==='n')],
+  ['Delete block',delSel,!sel]]}],
+ ['Add',function(){return[
+  ['Parts catalog…',function(){openCatalog()}],
+  ['Logic…',function(){openPalette(['Logic'])}],
+  ['Inputs…',function(){openPalette(['Inputs'])}],
+  ['Starter projects…',openStarters],
+  ['Breadboard',addBreadboard],
+  '-',
+  ['All blocks…',function(){openPalette()}]]}],
+ ['View',function(){return[
+  ['Fit to screen',fitView],
+  ['Connection key',openKey],
+  ['Pin map',openPinMap],
+  '-',
+  [CON.open?'Hide console':'Show console',function(){CON.open?closeConsole():openConsole()}]]}],
+ ['Project',function(){return[
+  ['Rename…',renameProject],
+  ['Duplicate',dupProject],
+  ['Delete…',delProject],
+  '-',
+  ['Setup script',openProjectSetup],
+  ['Controls script',openControls],
+  ['Run the whole project',openRun],
+  ['Next steps',openIdeas]]}],
+ ['Help',function(){return[
+  ['How this works',openHow],
+  ['About Studio Wetware',openAbout]]}]
+];
+function ddItems(host,items,after){
+  items.forEach(function(it){
+    if(it==='-'){host.appendChild(h('div',{class:'dds'}));return}
+    var bt=h('button',{class:'ddi',role:'menuitem',onclick:function(){after();it[1]()}},[h('span',{text:it[0]})]);
+    if(it[3])bt.appendChild(h('i',{text:it[3]}));
+    if(it[2])bt.disabled=true;
+    host.appendChild(bt);
+  });
+}
+var DD={cur:null};
+function closeDD(){DD.cur=null;$('#dd').classList.remove('open');$all('#menus .mb').forEach(function(x){x.classList.remove('on')})}
+function openDD(i){
+  var dd=$('#dd');dd.innerHTML='';ddItems(dd,MENUS[i][1](),closeDD);
+  var btn=$all('#menus .mb')[i],r=btn.getBoundingClientRect();
+  $all('#menus .mb').forEach(function(x,j){x.classList.toggle('on',j===i)});
+  dd.classList.add('open');DD.cur=i;
+  dd.style.top=(r.bottom)+'px';dd.style.left=Math.max(0,Math.min(r.left,window.innerWidth-dd.offsetWidth-6))+'px';
+}
+function openHam(){
+  var m=$('#ham');m.innerHTML='';
+  var hh=h('div',{class:'hh'},[h('b',{style:'letter-spacing:.18em;text-transform:uppercase;font-size:13px',text:'Studio Wetware'}),h('button',{class:'btn sm',text:'Close',onclick:closeHam})]);
+  m.appendChild(hh);
+  MENUS.forEach(function(g){m.appendChild(h('div',{class:'hg',text:g[0]}));ddItems(m,g[1](),closeHam)});
+  m.classList.add('open');$('#hamBack').classList.add('open');
+}
+function closeHam(){$('#ham').classList.remove('open');$('#hamBack').classList.remove('open')}
+function openMenu(){openHam()}
+(function(){
+  var nav=$('#menus');
+  MENUS.forEach(function(g,i){
+    nav.appendChild(h('button',{class:'mb',text:g[0],'aria-haspopup':'menu',onclick:function(e){e.stopPropagation();DD.cur===i?closeDD():openDD(i)},onmouseenter:function(){if(DD.cur!==null&&DD.cur!==i)openDD(i)}}));
+  });
+  document.addEventListener('pointerdown',function(e){if(DD.cur!==null&&!e.target.closest('#dd')&&!e.target.closest('#menus'))closeDD()},true);
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeDD();closeHam()}});
+  window.addEventListener('blur',closeDD);
+  $('#hamBack').addEventListener('click',closeHam);
+  $('#btnHam').addEventListener('click',openHam);
+  $('#brand').addEventListener('click',openAbout);
+})();
 function newProject(name){
   var p=hydrate({id:'p'+Date.now().toString(36)+Math.floor(Math.random()*99),name:name,nodes:[],wires:[],seq:1,view:{x:30,y:30,k:.9}});
   S.projects.push(p);setProject(p.id);
@@ -3099,7 +3283,15 @@ function openStarters(){
   });
 }
 /* ---------- console sidebar ---------- */
-var CON={open:false,tab:null,sig:''};
+var CON={open:false,tab:null,sig:'',w:460};
+try{var _cw=parseInt(localStorage.getItem(KEY+'.conw'),10);if(_cw>=260&&_cw<=1400)CON.w=_cw}catch(e){}
+function applyCon(){
+  var m=$('#main');if(!m)return;
+  var max=Math.max(260,Math.floor(m.clientWidth*.75)),w=Math.max(260,Math.min(CON.w,max));
+  m.style.setProperty('--cw',w+'px');m.style.setProperty('--conw',(CON.open?w:30)+'px');
+  $('#con').classList.toggle('open',CON.open);$('#btnCon').classList.toggle('on',CON.open);
+  setTimeout(drawMini,30);
+}
 function piHosts(){return P.nodes.filter(function(x){return isHost(x)&&HOSTS[x.type].pi})}
 function conSections(){
   var secs=[];
@@ -3131,13 +3323,13 @@ function openConsole(spec){
     if(spec.indexOf(':')<0){var hs=piHosts();spec=hs.length?'h'+hs[0].id+':'+spec:null}
     if(spec)CON.tab=spec;
   }
-  CON.open=true;$('#con').classList.add('open');renderConsole(true);setTimeout(drawMini,50);
+  CON.open=true;applyCon();renderConsole(true);
 }
 function openScreenConsole(n){
   var g=genScripts(n);
   openConsole('s'+n.id+':'+(g.list?(g.list.some(function(x){return x.id==='render'})?'render':g.list[0].id):'render'));
 }
-function closeConsole(){CON.open=false;$('#con').classList.remove('open');setTimeout(drawMini,50)}
+function closeConsole(){CON.open=false;applyCon()}
 function renderConsole(force){
   if(!CON.open||!P)return;
   var secs=conSections(),flat=[];
@@ -3175,22 +3367,31 @@ function openRun(){openConsole('main')}
 function openProjectSetup(){openConsole('setup')}
 $('#btnCon').addEventListener('click',function(){CON.open?closeConsole():openConsole()});
 $('#conClose').addEventListener('click',closeConsole);
+$('#conRail').addEventListener('click',function(){openConsole()});
+(function(){
+  var g=$('#conGrip'),on=false;
+  g.addEventListener('pointerdown',function(e){on=true;g.classList.add('drag');document.body.classList.add('cdrag');try{g.setPointerCapture(e.pointerId)}catch(x){}e.preventDefault()});
+  g.addEventListener('pointermove',function(e){
+    if(!on)return;var r=$('#main').getBoundingClientRect();
+    CON.w=Math.max(260,Math.min(Math.round(r.right-e.clientX),Math.floor(r.width*.75)));applyCon();
+  });
+  function end(){if(!on)return;on=false;g.classList.remove('drag');document.body.classList.remove('cdrag');try{localStorage.setItem(KEY+'.conw',String(CON.w))}catch(e){}}
+  g.addEventListener('pointerup',end);g.addEventListener('pointercancel',end);
+  g.addEventListener('dblclick',function(){CON.w=460;applyCon();try{localStorage.setItem(KEY+'.conw','460')}catch(e){}});
+})();
 /* ---------- wiring up the page ---------- */
-$('#btnAdd').addEventListener('click',openPalette);
-$('#btnFit').addEventListener('click',fitView);
-$('#btnKey').addEventListener('click',openKey);
 $('#btnUndo').addEventListener('click',undo);
 $('#btnRedo').addEventListener('click',redo);
-$('#btnMenu').addEventListener('click',openMenu);
 $('#projSel').addEventListener('change',function(e){setProject(e.target.value)});
 document.addEventListener('keydown',function(e){
   var t=e.target&&e.target.tagName;if(t==='INPUT'||t==='TEXTAREA'||t==='SELECT')return;
   if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();delSel()}
   else if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo()}
 });
-window.addEventListener('resize',drawMini);
+window.addEventListener('resize',function(){applyCon();drawMini()});
 setInterval(function(){if(P&&P.nodes.some(function(n){return n.type==='timer'&&n.props.run}))refresh()},300);
 
+applyCon();
 load();
 P=S.projects.filter(function(p){return p.id===S.cur})[0]||S.projects[0];S.cur=P.id;
 projList();renderAll();commitNow();
