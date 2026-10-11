@@ -159,6 +159,11 @@ input,select,textarea{accent-color:var(--accent)}
 #top .ib:hover:not(:disabled){background:var(--accent);color:var(--on-accent)}
 #top .ib.on{background:var(--accent);color:var(--on-accent)}
 #btnHam{display:none;font-size:20px;border-left:0!important}
+#btnPlus{display:none;font-size:24px;font-weight:300}
+.hgb{display:flex;justify-content:space-between;align-items:center;width:100%;padding:15px 16px;border:0;border-bottom:1px solid var(--line);background:none;font-size:13px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--text);text-align:left;border-radius:0}
+.hgb.on{background:var(--accent);color:var(--on-accent)}
+.hgi{display:none;border-bottom:1px solid var(--rule)}
+.hgi.open{display:block}
 .btn,.ib,select.sm,.crow,.tile,.pin,pre.code,.dv,.bdg{border-radius:var(--r)}
 .btn{background:var(--panel);border-color:var(--rule)}
 .btn.sm{border-color:var(--line)}
@@ -210,7 +215,7 @@ input,select,textarea{accent-color:var(--accent)}
 body.cdrag{user-select:none;cursor:col-resize}
 @media (max-width:900px){
   .brand,#menus{display:none}
-  #btnHam{display:block}
+  #btnHam,#btnPlus{display:block}
   #top{padding-left:0}
   #projSel{flex:1;margin-left:8px;margin-right:6px}
   #topsp{display:none}
@@ -230,6 +235,7 @@ body.cdrag{user-select:none;cursor:col-resize}
   <nav id="menus" aria-label="Menus"></nav>
   <select id="projSel" aria-label="Project"></select>
   <span id="topsp"></span>
+  <button id="btnPlus" class="ib" aria-label="Add" title="Add">+</button>
   <button id="btnUndo" class="ib" aria-label="Undo">&#8630;</button>
   <button id="btnRedo" class="ib" aria-label="Redo">&#8631;</button>
   <button id="btnCon" class="ib" aria-label="Toggle console" title="Console" style="font-size:14px;font-family:var(--mono)">&gt;_</button>
@@ -1785,6 +1791,42 @@ function mountKind(n){
   if(f.indexOf('USB')>=0)return'USB port';
   return'Wired to the header pins';
 }
+function pdfPinout(pdf,hn,pre){
+  var T=HOSTS[hn.type],ad=mountedOn(hn.id),claim={},rows=[];
+  ad.forEach(function(a,ai){claimsOf(a).forEach(function(c){
+    (claim[c.g]=claim[c.g]||[]).push({s:ADDONS[a.type].short,r:c.r,col:CLAIM_COLORS[ai%4]});
+    var pi=PINS.indexOf(String(c.g));
+    rows.push({g:c.g,pin:pi>=0?pi+1:0,t:ADDONS[a.type].short+' '+c.r});
+  })});
+  if(!T.pi){
+    pdf.title(pre+'GPIO pinout');
+    pdf.p('The '+T.title+' has no 40-pin header. Parts are wired to any free GPIO, and the pins in use are listed here.');
+    if(rows.length)pdf.cmd(rows.map(function(r){return('GPIO'+r.g+'        ').slice(0,9)+r.t}));else pdf.p('No parts are wired to this board yet.');
+    return;
+  }
+  pdf.title(pre+'GPIO pinout');
+  pdf.p('The 40-pin header as you see it with pin 1 at the top left. Odd pin numbers are the left column and even the right. Colored stripes show the connection type, and a colored cell is a pin this project uses.',{size:9.5});
+  var D=pdf.D,M=pdf.M,CW=pdf.CW,cw=(CW-14)/2,rh=24,top=D.y-4,k,gx;
+  pdf.legend(['v33','v5','gnd','i2c','spi','uart','gpio','pwm']);
+  top=D.y-6;
+  for(var r=0;r<20;r++)[0,1].forEach(function(side){
+    var i=2*r+side,lbl=PINS[i],x=M+side*(cw+14),y=top-(r+1)*rh,l1,l2='',ck,fill='#FFFFFF',tc='#222222';
+    if(lbl==='3V3'||lbl==='5V'){l1=(i+1)+'   '+lbl;ck=lbl==='3V3'?'v33':'v5'}
+    else if(lbl==='GND'){l1=(i+1)+'   GND';ck='gnd'}
+    else{var gp=parseInt(lbl,10),a=ALT[gp]||'';l1=(i+1)+'   GPIO'+gp+(a?'  '+a:'');
+      ck=/SDA|SCL/.test(a)?'i2c':/MOSI|MISO|SCLK|CE/.test(a)?'spi':/TXD|RXD/.test(a)?'uart':/PWM/.test(a)?'pwm':/ID_/.test(a)?'hat':'gpio';
+      var c=claim[gp];if(c){fill=c[0].col;tc='#FFFFFF';l2=c.map(function(q){return q.s+' '+q.r}).join(' + ')}}
+    var col=ck==='gnd'?'#2F2F2F':CONN[ck].color||connColor(ck);
+    pdf.RECT(x,y,cw,rh-2,fill,'#BBBBBB',.6);pdf.RECT(x,y,5,rh-2,col);
+    pdf.T('bold',8.5,x+11,y+(l2?11.5:7),l1,tc);
+    if(l2)pdf.T('reg',7,x+11,y+3,l2.length>52?l2.slice(0,50)+'..':l2,tc);
+  });
+  D.y=top-20*rh-10;
+  if(rows.length){
+    pdf.h3('Pins used by this project');
+    pdf.cmd(rows.map(function(r){return('GPIO'+r.g+'       ').slice(0,8)+(r.pin?('pin '+r.pin+'    ').slice(0,8):'        ')+r.t}));
+  }else pdf.p('No parts use header pins yet.');
+}
 function guideHost(pdf,hn,multi,state){
   var T=HOSTS[hn.type],pre=multi?T.short+' #'+hn.id+': ':'';
   var parts=mountedOn(hn.id),pf=projectFiles(hn);
@@ -1807,8 +1849,6 @@ function guideHost(pdf,hn,multi,state){
   pdf.h2('Connection key');
   pdf.legend(['v33','v5','gnd','i2c','spi','uart','gpio','pwm','csi','usb','hat']);
   pdf.p('The same colors and shapes are used in the app and in the drawings in this guide.',{size:9,color:'#666666'});
-  pdf.h2('A note on the code');
-  pdf.p('The scripts use vendor libraries (Picamera2, gpiozero, luma.oled, the Waveshare drivers and others). They were written from memory and have not been verified on real hardware, so check names and settings against each library\'s own documentation. Test one part at a time.');
   /* 2. ready */
   pdf.title(pre+'1. Get ready');
   pdf.h2('You will need');
@@ -1852,9 +1892,16 @@ function guideHost(pdf,hn,multi,state){
     pdf.h3('Wiring table');
     var wc=0;pl.table.forEach(function(r){wc=Math.max(wc,r.from.length)});
     pdf.cmd(pl.table.map(function(r){return(r.from+'                                        ').slice(0,wc+2)+'-> '+r.to+'  ['+CONN[r.conn].label+']'}));
+    pdf.h3('Pinout for each part');
+    pdf.cmd([].concat.apply([],pl.parts.map(function(p){
+      var L=[p.A.title];
+      p.sig.forEach(function(sg){L.push('  '+(sg.label+'            ').slice(0,12)+'-> Pi pin '+(sg.term?sg.term.phys:'?')+' (GPIO'+sg.g+')')});
+      p.pw.forEach(function(q){L.push('  '+(q.label+'            ').slice(0,12)+'-> '+(q.kind==='gnd'?'GND rail (Pi pin 6)':q.kind==='v5'?'5V rail (Pi pin 2)':'3.3V rail (Pi pin 1)'))});
+      L.push('');return L})));
     if(pl.warn.length){pdf.h3('Check these before powering on');pdf.bullets(pl.warn)}
     if(pl.notes.length){pdf.h3('Notes');pdf.bullets(pl.notes)}
   });
+  pdfPinout(pdf,hn,pre);
   /* 6. copy */
   pdf.title(pre+'5. Copy the files to the Pi');
   pdf.p('Save the scripts from Part 2 into one folder on your computer. Each page says what to name the file. '+(multi?'Keep each Pi\'s files in their own folder and use the plain file names shown. ':'')+'On the Pi, make a folder for the project:');
@@ -2863,10 +2910,10 @@ function ddItems(host,items,after){
 }
 var DD={cur:null};
 function closeDD(){DD.cur=null;$('#dd').classList.remove('open');$all('#menus .mb').forEach(function(x){x.classList.remove('on')})}
-function openDD(i){
+function openDD(i,anchor){
   var dd=$('#dd');dd.innerHTML='';ddItems(dd,MENUS[i][1](),closeDD);
-  var btn=$all('#menus .mb')[i],r=btn.getBoundingClientRect();
-  $all('#menus .mb').forEach(function(x,j){x.classList.toggle('on',j===i)});
+  var btn=anchor||$all('#menus .mb')[i],r=btn.getBoundingClientRect();
+  $all('#menus .mb').forEach(function(x,j){x.classList.toggle('on',!anchor&&j===i)});
   dd.classList.add('open');DD.cur=i;
   dd.style.top=(r.bottom)+'px';dd.style.left=Math.max(0,Math.min(r.left,window.innerWidth-dd.offsetWidth-6))+'px';
 }
@@ -2874,7 +2921,15 @@ function openHam(){
   var m=$('#ham');m.innerHTML='';
   var hh=h('div',{class:'hh'},[h('b',{style:'letter-spacing:.18em;text-transform:uppercase;font-size:13px',text:'Studio Wetware'}),h('button',{class:'btn sm',text:'Close',onclick:closeHam})]);
   m.appendChild(hh);
-  MENUS.forEach(function(g){m.appendChild(h('div',{class:'hg',text:g[0]}));ddItems(m,g[1](),closeHam)});
+  MENUS.forEach(function(g){
+    var box=h('div',{class:'hgi'}),bt=h('button',{class:'hgb',text:g[0]},[h('span',{text:'+'})]);
+    bt.addEventListener('click',function(){
+      var was=box.classList.contains('open');
+      $all('#ham .hgi').forEach(function(x){x.classList.remove('open')});$all('#ham .hgb').forEach(function(x){x.classList.remove('on');x.lastChild.textContent='+'});
+      if(!was){box.classList.add('open');bt.classList.add('on');bt.lastChild.textContent='\u2212'}
+    });
+    ddItems(box,g[1](),closeHam);m.appendChild(bt);m.appendChild(box);
+  });
   m.classList.add('open');$('#hamBack').classList.add('open');
 }
 function closeHam(){$('#ham').classList.remove('open');$('#hamBack').classList.remove('open')}
@@ -2884,11 +2939,12 @@ function openMenu(){openHam()}
   MENUS.forEach(function(g,i){
     nav.appendChild(h('button',{class:'mb',text:g[0],'aria-haspopup':'menu',onclick:function(e){e.stopPropagation();DD.cur===i?closeDD():openDD(i)},onmouseenter:function(){if(DD.cur!==null&&DD.cur!==i)openDD(i)}}));
   });
-  document.addEventListener('pointerdown',function(e){if(DD.cur!==null&&!e.target.closest('#dd')&&!e.target.closest('#menus'))closeDD()},true);
+  document.addEventListener('pointerdown',function(e){if(DD.cur!==null&&!e.target.closest('#dd')&&!e.target.closest('#menus')&&!e.target.closest('#btnPlus'))closeDD()},true);
   document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeDD();closeHam()}});
   window.addEventListener('blur',closeDD);
   $('#hamBack').addEventListener('click',closeHam);
   $('#btnHam').addEventListener('click',openHam);
+  $('#btnPlus').addEventListener('click',function(e){e.stopPropagation();DD.cur===2?closeDD():openDD(2,e.currentTarget)});
   $('#brand').addEventListener('click',openAbout);
 })();
 function newProject(name){
@@ -2984,11 +3040,17 @@ function buildCatalog(b,hostType){
   b.appendChild(chips);b.appendChild(h('div',{style:'margin:8px 0'},[hs]));b.appendChild(box);
   function draw(){
     chips.innerHTML='';
-    [{id:'all',name:'All'}].concat(CATS).forEach(function(c){
+    [{id:'all',name:'All'}].concat(hostType?[]:[{id:'boards',name:'Boards'}]).concat(CATS).forEach(function(c){
       chips.appendChild(h('button',{class:'btn sm'+(st.cat===c.id?' on':''),text:c.name,onclick:function(){st.cat=c.id;draw()}}));
     });
     box.innerHTML='';var cnt=0;
+    if(!hostType&&(st.cat==='all'||st.cat==='boards'))Object.keys(HOSTS).forEach(function(k){
+      if(st.host!=='all'&&st.host!==k)return;
+      var T=HOSTS[k];cnt++;
+      box.appendChild(h('button',{class:'crow',onclick:function(){closeSheet();addNode(k);toast('Added '+T.title)}},[h('b',{text:T.title}),h('span',{text:T.specs.slice(0,3).join(' | ')}),h('span',{text:'Board | tap to add to the canvas'})]));
+    });
     Object.keys(ADDONS).forEach(function(id){
+      if(st.cat==='boards')return;
       var A=ADDONS[id];
       if(st.cat!=='all'&&A.cat!==st.cat)return;
       if(st.host!=='all'&&A.hosts.indexOf(st.host)<0)return;
