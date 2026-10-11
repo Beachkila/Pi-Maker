@@ -485,7 +485,7 @@ function hostBody(n,b){
   n.rt.list=h('div',{class:'lbl'});
   b.appendChild(n.rt.list);
   n.rt.strip=h('div',{class:'cstrip'});b.appendChild(n.rt.strip);
-  if(n.type!=='esp'){b.appendChild(lab('Simulated CPU temp'));b.appendChild(inp(n,'cpu',{type:'range',min:30,max:85,step:1}))}
+  if(HOSTS[n.type].pi){b.appendChild(lab('Simulated CPU temp'));b.appendChild(inp(n,'cpu',{type:'range',min:30,max:85,step:1}))}
   b.appendChild(h('div',{class:'flex'},[
     h('button',{class:'btn sm',text:'Pin map',onclick:function(){openPins(n)}}),
     h('button',{class:'btn sm',text:'Parts for this host',onclick:function(){openSpecs(n)}})
@@ -526,6 +526,7 @@ function mountUpd(n){
   drawStrip(n);
 }
 function dspDefaults(type){
+  if(ADDONS[type]&&ADDONS[type].dd)return ADDONS[type].dd();
   if(type==='p_ssd1306')return{els:[
     {t:'text',x:4,y:2,s:20,b:1,v:'my-pi',c:'#ffffff'},
     {t:'text',x:4,y:34,s:14,b:0,v:'temp {in1} C',c:'#ffffff'},
@@ -989,10 +990,10 @@ function ideas(){
     var cams=parts.filter(function(p){return ADDONS[p.type].cat==='cam'}),
       picam=cams.filter(function(p){return /^p_(cam|hq)/.test(p.type)})[0],
       scr=parts.filter(function(p){return ACT_DEFS[p.type]&&ACT_DEFS[p.type].some(function(a){return a.id==='show'})}),
-      lcd=parts.filter(function(p){return p.type==='lcd'})[0],
+      lcd=parts.filter(function(p){return hasPad(p.type)})[0],
       btns=parts.filter(function(p){return p.type==='p_button'}),
       pir=parts.filter(function(p){return p.type==='p_pir'})[0],
-      ps=parts.filter(function(p){return p.type==='ps'})[0],
+      ps=parts.filter(function(p){return isPs(p.type)})[0],
       sens=parts.filter(function(p){return ADDONS[p.type].cat==='sens'&&ADDONS[p.type].outs.length&&p.type!=='p_pir'});
     function keyFor(prefer){
       if(lcd){var q=freeOut(lcd,prefer);if(q>=0)return{n:lcd,p:q}}
@@ -1304,7 +1305,7 @@ function simOther(n,tg){
 }
 function simPowerOff(){
   SIM.off=true;runLog('Shutting down. The unit is now off');
-  SIM.scr.forEach(function(st){st.cv.classList.add('poff');st.stat.textContent=st.n.type==='eink'?'Powered off (the image stays on e-ink)':'Powered off'});
+  SIM.scr.forEach(function(st){st.cv.classList.add('poff');st.stat.textContent=isEink(st.n.type)?'Powered off (the image stays on e-ink)':'Powered off'});
   var pb=$('#runPower');if(pb)pb.hidden=false;
 }
 /* ---------- connection types: one color, shape and label each ---------- */
@@ -1359,6 +1360,7 @@ function drawStrip(n){
 function hostStrip(n){
   if(!n.rt||!n.rt.strip)return;
   var T=HOSTS[n.type],cap=CAP[n.type]||{},spec=[];
+  if(T.chips)T.chips.forEach(function(k){spec.push({k:k})});
   if(T.pi){spec.push({k:'hat',t:'40-pin header'});spec.push({k:'i2c'});spec.push({k:'spi'});spec.push({k:'uart'})}
   if(cap.mipi)spec.push({k:'csi',t:'Ribbon ports x'+cap.mipi});
   spec.push({k:'usb'});
@@ -1393,6 +1395,343 @@ var BBX={
   p_touchpad:{v:'v33'}
 };
 CATS.push({id:'proto',name:'Prototyping',blurb:'Wire loose parts'});
+/* ---------- catalog 2: more boards, screens, cameras, sensors and power ---------- */
+var FAMS={zero:['zero2','zerow'],full:['pi4','pi3bp','pi400'],pi5:['pi5','pi500'],mcu:['esp','esp32dev','esps3','esp32c3','esp32c6','esp8266','xiaos3','pico','picow','pico2','pico2w']};
+var OLD_IDS=Object.keys(ADDONS);
+var PS_T={ps:1,ps2:1,ps2pro:1,ps3plus:1};
+function isPs(t){return !!PS_T[t]}
+function isEink(t){return t==='eink'||!!(ADDONS[t]&&ADDONS[t].epd)}
+function hasPad(t){return !!(ADDONS[t]&&ADDONS[t].pad)}
+HOSTS.zero2.fam='zero';HOSTS.pi5.fam='pi5';HOSTS.pi5.gpiod=true;HOSTS.esp.fam='mcu';
+var FW_ESP='Firmware: Arduino, ESP-IDF or MicroPython',FW_PICO='Firmware: MicroPython, CircuitPython or C/C++',NOHAT='Add-ons wire to free GPIO (no HAT header)';
+var NEWH={
+  zerow:{title:'Pi Zero W',pi:true,short:'Zero W',fam:'zero',specs:['Single-core ARM11, 1 GHz, 512 MB RAM','40-pin footprint (the header is unsoldered unless you buy the WH)','SPI, I2C, UART, PWM, camera (CSI)','Wi-Fi 2.4 GHz, Bluetooth 4.1','micro-USB OTG, mini-HDMI']},
+  pi3bp:{title:'Pi 3 B+',pi:true,short:'Pi 3 B+',fam:'full',specs:['Quad-core Cortex-A53, 1.4 GHz, 1 GB RAM','40-pin header, 3.3 V logic','SPI, I2C, UART, PWM, camera (CSI), display (DSI)','Wi-Fi 2.4 / 5 GHz, Bluetooth 4.2','4 x USB 2.0, full-size HDMI, Ethernet']},
+  pi4:{title:'Pi 4 B',pi:true,short:'Pi 4',fam:'full',specs:['Quad-core Cortex-A72, 1.5 GHz, 1 to 8 GB RAM','40-pin header, 3.3 V logic','SPI, I2C, UART, PWM, camera (CSI), display (DSI)','Wi-Fi 5, Bluetooth 5.0','2 x USB 3.0, 2 x USB 2.0, 2 x micro-HDMI, Gigabit Ethernet','Header GPIO uses the classic libraries (RPi.GPIO, gpiozero)']},
+  pi400:{title:'Pi 400',pi:true,short:'Pi 400',fam:'full',specs:['Quad-core Cortex-A72, 1.8 GHz, 4 GB RAM, built into a keyboard','40-pin header on the back, 3.3 V logic','SPI, I2C, UART, PWM. No camera or display ribbon ports','Wi-Fi 5, Bluetooth 5.0','2 x USB 3.0, 1 x USB 2.0, 2 x micro-HDMI, Gigabit Ethernet']},
+  pi500:{title:'Pi 500',pi:true,short:'Pi 500',fam:'pi5',gpiod:true,specs:['Quad-core Cortex-A76, 2.4 GHz, 8 GB RAM, built into a keyboard','40-pin header on the back, 3.3 V logic','SPI, I2C, UART, PWM. No camera or display ribbon ports','Header GPIO goes through gpiod / lgpio (classic RPi.GPIO does not work)','2 x USB 3.0, 1 x USB 2.0, 2 x micro-HDMI, Gigabit Ethernet, Wi-Fi 5, Bluetooth 5.0']},
+  pico:{title:'Pico',pi:false,short:'Pico',fam:'mcu',chips:['i2c','spi','uart','pwm','gpio'],specs:['Dual-core Arm Cortex-M0+ (RP2040), 133 MHz, 264 KB RAM, 2 MB flash','26 usable GPIO, 3 analog inputs','2 x I2C, 2 x SPI, 2 x UART, 16 PWM channels, 8 PIO state machines','No Wi-Fi or Bluetooth',FW_PICO,NOHAT]},
+  picow:{title:'Pico W',pi:false,short:'Pico W',fam:'mcu',chips:['i2c','spi','uart','pwm','gpio'],specs:['Dual-core Arm Cortex-M0+ (RP2040), 133 MHz, 264 KB RAM, 2 MB flash','26 usable GPIO, 3 analog inputs','2 x I2C, 2 x SPI, 2 x UART, 16 PWM channels, 8 PIO state machines','Wi-Fi 2.4 GHz and Bluetooth',FW_PICO,NOHAT]},
+  pico2:{title:'Pico 2',pi:false,short:'Pico 2',fam:'mcu',chips:['i2c','spi','uart','pwm','gpio'],specs:['Dual-core Arm Cortex-M33 (RP2350), 150 MHz, 520 KB RAM, 4 MB flash','26 usable GPIO, analog inputs on GPIO 26 to 28','2 x I2C, 2 x SPI, 2 x UART, 24 PWM channels, 12 PIO state machines','No Wi-Fi or Bluetooth',FW_PICO,NOHAT]},
+  pico2w:{title:'Pico 2 W',pi:false,short:'Pico 2 W',fam:'mcu',chips:['i2c','spi','uart','pwm','gpio'],specs:['Dual-core Arm Cortex-M33 (RP2350), 150 MHz, 520 KB RAM, 4 MB flash','26 usable GPIO, analog inputs on GPIO 26 to 28','2 x I2C, 2 x SPI, 2 x UART, 24 PWM channels, 12 PIO state machines','Wi-Fi 2.4 GHz and Bluetooth',FW_PICO,NOHAT]},
+  esp32dev:{title:'ESP32 DevKit',pi:false,short:'ESP32',fam:'mcu',chips:['i2c','spi','uart','pwm','gpio'],specs:['Dual-core Xtensa LX6, 240 MHz, 520 KB RAM','Wi-Fi 2.4 GHz, Bluetooth Classic and BLE','Up to 34 GPIO (some are input only or used at boot), 18 analog channels',FW_ESP,NOHAT]},
+  esps3:{title:'ESP32-S3 DevKit',pi:false,short:'ESP32-S3 Dev',fam:'mcu',chips:['i2c','spi','uart','pwm','gpio'],specs:['Dual-core Xtensa LX7, 240 MHz','Wi-Fi 2.4 GHz, Bluetooth 5 LE','Native USB and vector instructions for small AI models',FW_ESP,NOHAT]},
+  esp32c3:{title:'ESP32-C3',pi:false,short:'ESP32-C3',fam:'mcu',chips:['i2c','spi','uart','pwm','gpio'],specs:['Single-core RISC-V, 160 MHz','Wi-Fi 2.4 GHz, Bluetooth 5 LE','Built-in USB serial and JTAG',FW_ESP,NOHAT]},
+  esp32c6:{title:'ESP32-C6',pi:false,short:'ESP32-C6',fam:'mcu',chips:['i2c','spi','uart','pwm','gpio'],specs:['Single-core RISC-V, 160 MHz','Wi-Fi 6, Bluetooth 5 LE','802.15.4 radio for Thread and Zigbee',FW_ESP,NOHAT]},
+  esp8266:{title:'ESP8266 (NodeMCU)',pi:false,short:'ESP8266',fam:'mcu',chips:['i2c','spi','uart','pwm','gpio'],specs:['Tensilica L106, 80 MHz','Wi-Fi 2.4 GHz, no Bluetooth','One analog input (0 to 1 V on the chip, most dev boards scale 3.3 V down to it)','Firmware: Arduino or MicroPython',NOHAT]},
+  xiaos3:{title:'XIAO ESP32-S3',pi:false,short:'XIAO S3',fam:'mcu',chips:['i2c','spi','uart','pwm','gpio'],specs:['Seeed Studio board, about 21 x 18 mm','Dual-core ESP32-S3, Wi-Fi, Bluetooth 5 LE','11 GPIO on the edge pads, 8 MB PSRAM and 8 MB flash','The Sense version adds a camera and a microphone',FW_ESP,NOHAT]}
+};
+Object.keys(NEWH).forEach(function(k){
+  var H=NEWH[k];HOSTS[k]=H;
+  TY[k]=Object.assign({},TY.zero2,{title:H.title,desc:H.pi?'Host. Pin map, capabilities, CPU temp.':'Host. Free GPIO, wired add-ons.',
+    outs:H.pi?TY.zero2.outs:[{n:'chip C',t:'num'}],props:function(){return{cpu:H.pi?42:36}}});
+});
+Object.assign(CAP,{zerow:{mipi:1},pi3bp:{mipi:2},pi4:{mipi:2},pi400:{mipi:0},pi500:{mipi:0}});
+
+/* ----- PiSugar family ----- */
+function addPower(id,o,clone){
+  var B=ADDONS.ps,A=Object.assign({cat:'power',ifaces:[],why:{},claims:[],needs:[],libs:[],recipes:[],recs:[],ok:0},o);
+  A.id=id;ADDONS[id]=A;
+  if(clone)TY[id]=Object.assign({},TY.ps,{title:A.title,desc:'Add-on. '+(A.outs===0?'':'Battery level and charging.')});
+  else def(id,{sink:false,cat:'hw',title:A.title,desc:'Add-on. Battery board.',w:210,ins:[],outs:[],props:function(){return{mount:null,sim:{},libs:{}}},ev:function(){return[]},
+    body:function(n,b){mountBody(n,b);b.appendChild(h('div',{class:'flex'},[h('button',{class:'btn sm',text:'Part page',onclick:function(){openPart(n.type,n)}})]))},upd:mountUpd});
+}
+var PS_LIBS=ADDONS.ps.libs,PS_I2C=[{g:2,r:'SDA',sh:1},{g:3,r:'SCL',sh:1}];
+var PS_SOCK={t:'Battery level is available over a local socket: send "get battery", the reply looks like "battery: 87"',ok:1};
+ADDONS.ps.mount='Mounts under the Pi, power through pogo pins';
+ADDONS.ps.needs[1]={t:'Mounts under a Pi Zero and powers it through pogo pins. The 40-pin header stays free',ok:1};
+addPower('ps2',{title:'PiSugar 2',short:'PiSugar 2',desc:'Battery board for the Pi Zero family, about 1200 mAh. Reports battery level over I2C and has a real-time clock.',ifaces:['I2C'],hosts:['zero2'],why:{pi5:'PiSugar 2 fits the Pi Zero footprint only',esp:'Pi Zero footprint only'},
+  claims:PS_I2C,mount:ADDONS.ps.mount,needs:[PS_SOCK,{t:'Mounts under a Pi Zero and powers it through pogo pins',ok:3},{t:'Talks to the Pi over I2C',ok:3}],libs:PS_LIBS,
+  recipes:['Battery gauge on a display','Safe shutdown at low battery'],recs:[{part:'eink',why:'E-ink only uses power when it refreshes'}]},true);
+addPower('ps2pro',{title:'PiSugar 2 Pro',short:'PiSugar 2 Pro',desc:'Battery board for Pi 3 and Pi 4, about 5000 mAh. Reports battery level over I2C and has a real-time clock.',ifaces:['I2C'],hosts:['pi4','pi3bp'],noexp:1,why:{zero2:'PiSugar 2 Pro fits the full-size Pi (3 B, 3 B+, 4 B). Use PiSugar 2 or 3 on a Zero',pi5:'PiSugar 2 Pro fits Pi 3 and Pi 4',esp:'Needs a Pi'},
+  claims:PS_I2C,mount:'Mounts under the Pi',needs:[PS_SOCK,{t:'Talks to the Pi over I2C',ok:3}],libs:PS_LIBS,
+  recipes:['Battery gauge on a display','Portable camera'],recs:[{part:'p_cam3',why:'Longer shoots away from a socket'}]},true);
+addPower('ps3plus',{title:'PiSugar 3 Plus',short:'PiSugar 3+',desc:'Larger battery board for Pi 3, 4 and 5, about 5000 mAh. Reports battery level over I2C, with a real-time clock and a software watchdog.',ifaces:['I2C'],hosts:['pi4','pi3bp','pi5'],noexp:1,why:{zero2:'PiSugar 3 Plus fits the full-size Pi. Use PiSugar 3 on a Zero',esp:'Needs a Pi'},
+  claims:PS_I2C,mount:'Mounts under the Pi',needs:[PS_SOCK,{t:'I2C address 0x57 or 0x68, set by a switch',ok:3},{t:'On a Pi 5 the PiSugar power manager needs I2C enabled',ok:3}],libs:PS_LIBS,
+  recipes:['Battery gauge on a display','Safe shutdown at low battery'],recs:[{part:'eink',why:'E-ink only uses power when it refreshes'}]},true);
+addPower('pss',{title:'PiSugar S',short:'PiSugar S',desc:'Simple 1200 mAh battery board for the Pi Zero family. Charges over micro USB and has a GPIO button. No battery readout over software.',ifaces:[],hosts:['zero2'],why:{pi5:'PiSugar S fits the Pi Zero footprint only',esp:'Pi Zero footprint only'},
+  claims:[],mount:'Mounts under the Pi',needs:[{t:'The S series has no I2C, so the Pi cannot read the battery level',ok:1},{t:'A GPIO button can power the Pi on and off',ok:1}],libs:[],
+  recipes:['Portable sensor'],recs:[{part:'eink',why:'E-ink only uses power when it refreshes'}]},false);
+addPower('pssp',{title:'PiSugar S Pro',short:'PiSugar S Pro',desc:'5000 mAh battery board for Pi 3 and Pi 4. Mounts with four screws and leaves the header free. No battery readout over software.',ifaces:[],hosts:['pi4','pi3bp'],noexp:1,why:{zero2:'PiSugar S Pro fits the full-size Pi. Use PiSugar S on a Zero',pi5:'PiSugar S Pro fits Pi 3 and Pi 4',esp:'Needs a Pi'},
+  claims:[],mount:'Mounts under the Pi',needs:[{t:'The S series has no I2C, so the Pi cannot read the battery level',ok:1},{t:'Charges over micro USB or USB-C and gives 5 V at up to 3 A',ok:1}],libs:[],
+  recipes:['Portable camera'],recs:[{part:'p_cam3',why:'Longer shoots away from a socket'}]},false);
+
+/* ----- Waveshare e-paper sizes (driver calls checked against the waveshare/e-Paper repo) ----- */
+var EPD_BASE={mod:'epd2in13_V4',init:['epd.init()'],clear:['epd.Clear(0xFF)'],full:['epd.display(epd.getbuffer({i}))'],base:['epd.displayPartBaseImage(epd.getbuffer({i}))'],pinit:[],part:['epd.displayPartial(epd.getbuffer({i}))'],sz:'epd.height, epd.width'};
+var EPDS=[
+ {id:'eink154',mod:'epd1in54_V2',title:'E-ink 1.54 V2',short:'E-ink 1.54',w:200,h:200,module:1,sz:'epd.width, epd.height',desc:'200 x 200 black and white e-paper module. Small and square.',init:['epd.init(0)'],pinit:['epd.init(1)'],part:['epd.displayPart(epd.getbuffer({i}))']},
+ {id:'eink27',mod:'epd2in7_V2',title:'E-ink 2.7 V2',short:'E-ink 2.7',w:264,h:176,sz:'epd.height, epd.width',desc:'264 x 176 black and white e-paper HAT.',clear:['epd.Clear()'],base:['epd.display_Base(epd.getbuffer({i}))'],part:['epd.display_Partial(epd.getbuffer({i}), 0, 0, epd.width, epd.height)']},
+ {id:'eink29',mod:'epd2in9_V2',title:'E-ink 2.9 V2',short:'E-ink 2.9',w:296,h:128,module:1,sz:'epd.height, epd.width',desc:'296 x 128 black and white e-paper module. Wide and thin.',base:['epd.display_Base(epd.getbuffer({i}))'],part:['epd.display_Partial(epd.getbuffer({i}))']},
+ {id:'eink352',mod:'epd3in52',title:'E-ink 3.52',short:'E-ink 3.52',w:360,h:240,sz:'epd.height, epd.width',desc:'360 x 240 black and white e-paper HAT. Full refresh only.',clear:['epd.display_NUM(epd.WHITE)','epd.refresh()'],full:['epd.display(epd.getbuffer({i}))','epd.refresh()'],base:null,part:null},
+ {id:'eink37',mod:'epd3in7',title:'E-ink 3.7',short:'E-ink 3.7',w:480,h:280,sz:'epd.height, epd.width',desc:'480 x 280 e-paper HAT. The script uses its fast black and white mode.',init:['epd.init(1)'],clear:['epd.Clear(0xFF, 1)'],full:['epd.display_1Gray(epd.getbuffer({i}))'],base:null,part:null},
+ {id:'eink42',mod:'epd4in2_V2',title:'E-ink 4.2 V2',short:'E-ink 4.2',w:400,h:300,module:1,sz:'epd.width, epd.height',desc:'400 x 300 black and white e-paper module.',clear:['epd.Clear()'],base:['epd.display(epd.getbuffer({i}))'],part:['epd.display_Partial(epd.getbuffer({i}))']},
+ {id:'eink583',mod:'epd5in83_V2',title:'E-ink 5.83 V2',short:'E-ink 5.83',w:648,h:480,sz:'epd.width, epd.height',desc:'648 x 480 black and white e-paper HAT.',clear:['epd.Clear()'],base:['epd.display(epd.getbuffer({i}))'],pinit:['epd.init_Part()'],part:['epd.display_Partial(epd.getbuffer({i}))']},
+ {id:'eink75',mod:'epd7in5_V2',title:'E-ink 7.5 V2',short:'E-ink 7.5',w:800,h:480,sz:'epd.width, epd.height',desc:'800 x 480 black and white e-paper HAT. A full refresh takes several seconds.',clear:['epd.Clear()'],base:['epd.display(epd.getbuffer({i}))'],pinit:['epd.init_part()'],part:['epd.display_Partial(epd.getbuffer({i}), 0, 0, epd.width, epd.height)']}
+];
+ADDONS.eink.epd=EPD_BASE;
+ADDONS.eink.needs.push({t:'The Waveshare Python library also switches GPIO 18 on and off as a power pin. Keep GPIO 18 free of other outputs',ok:1});
+function epdOf(t){var A=ADDONS[t];if(!A||!A.epd)return null;var E=Object.assign({},EPD_BASE,A.epd);if(E.base===undefined)E.base=E.full;return E}
+function epdScaled(w,h){
+  var k=Math.min(w/250,h/122);function s(v){return Math.round(v*k)}
+  return{els:[{t:'text',x:s(10),y:s(10),s:s(30),b:1,v:'my-pi',c:'#000000'},{t:'text',x:s(10),y:s(70),s:s(15),b:0,v:'batt {in1}%',c:'#000000'},{t:'text',x:s(10),y:s(92),s:s(15),b:0,v:'cpu {in2} C',c:'#000000'},{t:'rect',x:0,y:0,w:w,h:h,f:0,c:'#000000'}],invert:false,bg:'#ffffff',sel:0};
+}
+function lcdScaled(w,h){
+  var k=Math.min(w,h)/128;function s(v){return Math.round(v*k)}
+  return{els:[{t:'text',x:s(8),y:s(8),s:s(20),b:1,v:'my-pi',c:'#00d09c'},{t:'text',x:s(8),y:s(100),s:s(12),b:0,v:'batt {in1}%',c:'#ffffff'},{t:'rect',x:0,y:0,w:w,h:h,f:0,c:'#00d09c'}],invert:false,bg:'#101010',sel:0};
+}
+EPDS.forEach(function(o){
+  var B=ADDONS.eink,E=Object.assign({},EPD_BASE,o);
+  var A=Object.assign({},B,{id:o.id,title:o.title,short:o.short,desc:o.desc+' The image stays with no power.',layout:{w:o.w,h:o.h,mono:true},epd:o,module:o.module,
+    needs:B.needs.slice(0,3).concat([{t:'Full refreshes flash and take several seconds. Larger panels take longer',ok:3}].concat(o.module?[{t:'Comes as a module with an 8-pin cable. Wire it to the same header pins the HAT versions use',ok:3}]:[]),[B.needs[4]]),
+    libs:B.libs.map(function(l){return l.id==='wsepd'?Object.assign({},l,{what:'Python driver ('+o.mod+') with example scripts'}):l}),
+    dd:function(){return epdScaled(o.w,o.h)}});
+  ADDONS[o.id]=A;
+  TY[o.id]=Object.assign({},TY.eink,{title:o.title,props:function(){return{mount:null,def:{},dsp:epdScaled(o.w,o.h)}},ev:function(){return[o.w,o.h]}});
+});
+
+/* ----- Waveshare LCD and OLED HATs and modules ----- */
+var KEYCL=[{g:6,r:'Up'},{g:19,r:'Down'},{g:5,r:'Left'},{g:26,r:'Right'},{g:13,r:'Press'},{g:21,r:'Key1'},{g:20,r:'Key2'},{g:16,r:'Key3'}];
+var LIB_LUMALCD={id:'lumalcd2',name:'luma.lcd',what:'Driver for the ST7789 panel. The generated scripts use it',lang:'Python',pm:'pip',pkg:'luma.lcd',blinka:1,ok:1,def:1};
+var LIB_LUMAOLED={id:'lumaoled2',name:'luma.oled',what:'Driver for the SH1106 panel. The generated scripts use it',lang:'Python',pm:'pip',pkg:'luma.oled',blinka:1,ok:1,def:1};
+var LIB_SPIDEV={id:'spidev',name:'spidev',what:'SPI access from Python',lang:'Python',pm:'apt',pkg:'python3-spidev',ok:1,def:1};
+ADDONS.lcd.pad=true;
+ADDONS.lcd13={id:'lcd13',title:'LCD 1.3 HAT',short:'LCD 1.3',cat:'disp',desc:'240 x 240 color IPS LCD HAT (ST7789) with a joystick and three keys.',ifaces:['SPI'],hosts:['zero2','zerow','pi3bp','pi4','pi5'],noexp:1,why:{esp:'Needs a Pi 40-pin header',pi400:'The Pi 400 header is on the back, so a HAT cannot plug in',pi500:'The Pi 500 header is on the back, so a HAT cannot plug in'},pad:true,layout:{w:240,h:240,mono:false},lumaLcd:{w:240,h:240,dc:25,rst:27,light:24},
+  claims:[{g:8,r:'CS'},{g:10,r:'MOSI',sh:1},{g:11,r:'SCLK',sh:1},{g:25,r:'DC'},{g:27,r:'RST'},{g:24,r:'BL'}].concat(KEYCL),
+  needs:[{t:'Enable SPI',ok:1},{t:'Same joystick and key pins as the 1.44 inch HAT: GPIO 5, 6, 13, 16, 19, 20, 21 and 26',ok:1},{t:'Backlight on GPIO 24, reset on GPIO 27, data/command on GPIO 25',ok:1},{t:'The generated scripts use the luma.lcd driver. Waveshare also ships a demo you can use instead',ok:1}],
+  libs:[LIB_LUMALCD,LIB_PIL,LIB_SPIDEV,LIB_FONT,{id:'wslcd13',name:'Waveshare 1.3inch LCD HAT demo',what:'Demo code and the vendor driver module',lang:'Python',pm:'manual',lines:['sudo apt install -y p7zip-full','wget https://files.waveshare.com/upload/b/bd/1.3inch_LCD_HAT_code.7z','7z x 1.3inch_LCD_HAT_code.7z -r -o./1.3inch_LCD_HAT_code'],ok:1,def:0}],
+  recipes:['Menu with the joystick','Status screen'],recs:[{part:'p_cam3',why:'Fast enough to preview what the camera sees'}],dd:function(){return lcdScaled(240,240)}};
+ADDONS.oled13={id:'oled13',title:'OLED 1.3 HAT',short:'OLED 1.3',cat:'disp',desc:'128 x 64 monochrome OLED HAT (SH1106) with a joystick and three keys.',ifaces:['SPI'],hosts:['zero2','zerow','pi3bp','pi4','pi5'],noexp:1,why:{esp:'Needs a Pi 40-pin header',pi400:'The Pi 400 header is on the back, so a HAT cannot plug in',pi500:'The Pi 500 header is on the back, so a HAT cannot plug in'},pad:true,layout:{w:128,h:64,mono:true},lumaOled:{dc:24,rst:25},
+  claims:[{g:8,r:'CS'},{g:10,r:'MOSI',sh:1},{g:11,r:'SCLK',sh:1},{g:24,r:'DC'},{g:25,r:'RST'}].concat(KEYCL),
+  needs:[{t:'Enable SPI',ok:1},{t:'Joystick and keys use GPIO 5, 6, 13, 16, 19, 20, 21 and 26',ok:1},{t:'Defaults to 4-wire SPI. A resistor change moves it to I2C at 0x3C',ok:1},{t:'The generated scripts use the luma.oled driver',ok:1}],
+  libs:[LIB_LUMAOLED,LIB_PIL,LIB_SPIDEV,LIB_FONT,{id:'wsoled13',name:'Waveshare 1.3inch OLED HAT demo',what:'Demo code and the vendor driver module',lang:'Python',pm:'manual',lines:['sudo apt install -y p7zip-full','wget https://files.waveshare.com/upload/5/53/1.3inch-OLED-HAT-Code.7z','7zr x 1.3inch-OLED-HAT-Code.7z -r -o.'],ok:1,def:0}],
+  recipes:['Menu with the joystick','Status screen'],recs:[{part:'p_bme280',why:'Readings fit one OLED screen'}],dd:function(){return dspDefaults('p_ssd1306')}};
+ADDONS.lcd20={id:'lcd20',title:'LCD 2.0 module',short:'LCD 2.0',cat:'disp',desc:'320 x 240 color LCD module (ST7789V) on SPI. Wired to the header with a cable.',ifaces:['SPI'],hosts:['zero2','zerow','pi3bp','pi4','pi400','pi5','pi500'],noexp:1,why:{esp:'Use an ESP32 display library instead'},layout:{w:320,h:240,mono:false},lumaLcd:{w:320,h:240,dc:25,rst:27,light:18},
+  claims:[{g:8,r:'CS'},{g:10,r:'MOSI',sh:1},{g:11,r:'SCLK',sh:1},{g:25,r:'DC'},{g:27,r:'RST'},{g:18,r:'BL'}],
+  needs:[{t:'Enable SPI',ok:1},{t:'Data/command on GPIO 25, reset on GPIO 27, backlight on GPIO 18',ok:1},{t:'The generated scripts use the luma.lcd driver. Waveshare also ships a demo you can use instead',ok:1}],
+  libs:[LIB_LUMALCD,LIB_PIL,LIB_SPIDEV,LIB_FONT,{id:'wslcd20',name:'Waveshare LCD module demo',what:'Demo code and the vendor driver module',lang:'Python',pm:'manual',lines:['sudo apt install -y unzip','wget https://files.waveshare.com/upload/8/8d/LCD_Module_RPI_code.zip','unzip ./LCD_Module_RPI_code.zip'],ok:1,def:0}],
+  recipes:['Status screen','Camera preview'],recs:[{part:'p_cam3',why:'Larger preview of what the camera sees'}],dd:function(){return lcdScaled(320,240)}};
+var TFT35=[
+ {id:'lcd35a',title:'LCD 3.5 (A)',short:'LCD 3.5 A',overlay:'waveshare35a',desc:'480 x 320 color LCD with resistive touch, on the first 26 header pins. Shows up as a framebuffer.',
+  lines:['sudo apt-get install unzip -y','wget https://files.waveshare.com/wiki/common/Waveshare35a.zip','unzip ./Waveshare35a.zip','sudo cp waveshare35a.dtbo /boot/overlays/']},
+ {id:'lcd35b',title:'LCD 3.5 (B)',short:'LCD 3.5 B',overlay:'waveshare35b-v2',desc:'480 x 320 IPS color LCD with resistive touch, on the first 26 header pins. Shows up as a framebuffer.',
+  lines:['# Download the driver zip for the 3.5inch RPi LCD (B) from the Waveshare wiki, unzip it, then:','sudo cp waveshare35b-v2.dtbo /boot/overlays/']},
+ {id:'lcd35c',title:'LCD 3.5 (C)',short:'LCD 3.5 C',overlay:'waveshare35c',desc:'480 x 320 color LCD with resistive touch, on the first 26 header pins. Shows up as a framebuffer.',
+  lines:['sudo apt-get install unzip -y','wget https://files.waveshare.com/wiki/common/Waveshare35c.zip','unzip ./Waveshare35c.zip','sudo cp waveshare35c.dtbo /boot/overlays/']}
+];
+TFT35.forEach(function(o){
+  ADDONS[o.id]={id:o.id,title:o.title,short:o.short,cat:'disp',desc:o.desc,ifaces:['SPI'],hosts:['zero2','zerow','pi3bp','pi4','pi5'],noexp:1,why:{esp:'Needs a Pi 40-pin header',pi400:'The Pi 400 header is on the back, so a HAT cannot plug in',pi500:'The Pi 500 header is on the back, so a HAT cannot plug in'},
+    layout:{w:480,h:320,mono:false},fb:1,
+    claims:[{g:8,r:'CS'},{g:10,r:'MOSI',sh:1},{g:11,r:'SCLK',sh:1},{g:9,r:'MISO',sh:1},{g:24,r:'DC'},{g:25,r:'RST'},{g:17,r:'Touch IRQ'},{g:7,r:'Touch CS'}],
+    cfg:['dtparam=spi=on','dtoverlay='+o.overlay],
+    needs:[{t:'Plugs onto the first 26 pins of the header',ok:1},{t:'Display on GPIO 24 (data/command), 25 (reset) and SPI CE0. Touch on GPIO 17 (interrupt) and SPI CE1',ok:1},{t:'Driver is a device-tree overlay from Waveshare. The setup script copies it and adds the line to config.txt. Use Raspberry Pi OS Bookworm or later',ok:1},{t:'The scripts draw into the framebuffer /dev/fb1. Calibrate touch with xinput-calibrator, as the Waveshare wiki describes',ok:1}],
+    libs:[{id:'wsdrv',name:'Waveshare driver overlay',what:'Device-tree overlay file ('+o.overlay+')',lang:'System',pm:'manual',lines:o.lines,ok:1,def:1},LIB_PIL,{id:'numpy',name:'NumPy',what:'Converts the picture for the framebuffer',lang:'Python',pm:'apt',pkg:'python3-numpy',ok:1,def:1},LIB_FONT,{id:'xcal',name:'xinput-calibrator',what:'Calibrates the touch layer',lang:'System',pm:'apt',pkg:'xinput-calibrator',ok:1,def:0}],
+    recipes:['Status screen','Touch dashboard'],recs:[{part:'p_cam3',why:'Large preview of what the camera sees'}],dd:function(){return lcdScaled(480,320)}};
+  TY[o.id]=Object.assign({},TY.eink,{title:o.title,ins:TY.lcd.ins,outs:[{n:'width',t:'num'},{n:'height',t:'num'}],props:function(){return{mount:null,def:{},dsp:lcdScaled(480,320)}},ev:function(){return[480,320]}});
+});
+['lcd13','oled13'].forEach(function(id){
+  TY[id]=Object.assign({},TY.lcd,{title:ADDONS[id].title,desc:'Add-on. '+(id==='lcd13'?'Color':'Monochrome')+' layout, joystick and keys.',props:function(){return{mount:null,def:{},dsp:ADDONS[id].dd()}}});
+});
+TY.lcd20=Object.assign({},TY.eink,{title:'LCD 2.0 module',ins:TY.lcd.ins,outs:[{n:'width',t:'num'},{n:'height',t:'num'}],props:function(){return{mount:null,def:{},dsp:lcdScaled(320,240)}},ev:function(){return[320,240]}});
+
+/* ----- Cameras: official extras and the Arducam lineup (overlay names checked against the Raspberry Pi firmware README) ----- */
+function camPart(o){
+  var X=Object.assign({cat:'cam',ifaces:['CSI'],hosts:['zero2','pi5'],why:{esp:'Needs a Pi camera port'},res:{mipi:1},claims:[],libs:COMMON_CAM_LIBS,recipes:['Time-lapse','Photo booth'],recs:[{part:'p_ssd1306',why:'Show status while the camera runs'},{part:'lcd',why:'Preview what the camera sees'}]},o);
+  regPart(X);ACT_DEFS[X.id]=camActs();ACT_DEFS[X.id].forEach(function(a){if(a.id==='photo')wrapLib(a,'cam')});
+}
+function ovNote(ov,pre){return {t:(pre||'Try it with no config first.')+' If rpicam-hello --list-cameras shows nothing, set camera_auto_detect=0 and add dtoverlay='+ov+' to config.txt',ok:1}}
+camPart({id:'p_camai',title:'AI Camera (IMX500)',short:'AI Cam',desc:'Raspberry Pi camera with a Sony IMX500 sensor that runs neural networks on the camera itself.',needs:[ZERO_CABLE,CAM_AUTO,{t:'Install the IMX500 firmware and models with: sudo apt install imx500-all, then reboot',ok:1}],
+  libs:COMMON_CAM_LIBS.concat([{id:'imx500',name:'imx500-all',what:'Firmware, sample models and rpicam-apps post-processing for the AI Camera',lang:'System',pm:'apt',pkg:'imx500-all',ok:1,def:1}]),recipes:['Object detection','Pose estimation']});
+camPart({id:'p_camgs',title:'Global Shutter Camera',short:'GS Cam',desc:'1.58 MP Sony IMX296 global shutter sensor. No rolling-shutter skew on fast motion. Takes C or CS lenses.',needs:[ZERO_CABLE,CAM_AUTO,{t:'The lens is sold separately',ok:3}],recipes:['Fast motion capture','Machine vision']});
+var ARD=[
+ {id:'p_camard5',t:'Arducam 5 MP (OV5647)',s:'Ard 5MP',ov:'ov5647',d:'5 MP fixed-focus camera on the same sensor as the original Pi camera.'},
+ {id:'p_camard219',t:'Arducam 8 MP (IMX219)',s:'Ard 219',ov:'imx219',d:'8 MP IMX219 camera, the Camera Module 2 sensor. Fixed or motorized focus versions.'},
+ {id:'p_camard477',t:'Arducam 12 MP (IMX477)',s:'Ard 477',ov:'imx477',d:'12 MP IMX477 camera, the HQ Camera sensor. C/CS lens mount or fixed lens versions.'},
+ {id:'p_camard708',t:'Arducam 12 MP (IMX708)',s:'Ard 708',ov:'imx708',d:'12 MP IMX708 camera with autofocus, the Camera Module 3 sensor.'},
+ {id:'p_camard378',t:'Arducam 12 MP (IMX378)',s:'Ard 378',ov:'imx378',d:'12 MP IMX378 camera.'},
+ {id:'p_camard519',t:'Arducam 16 MP (IMX519)',s:'Ard 519',ov:'imx519',d:'16 MP IMX519 autofocus camera.'},
+ {id:'p_camard335',t:'Arducam 5 MP (IMX335)',s:'Ard 335',ov:'imx335',d:'5 MP IMX335 camera with good low-light behavior.'},
+ {id:'p_camard415',t:'Arducam 8 MP (IMX415)',s:'Ard 415',ov:'imx415',d:'8.3 MP IMX415 camera.'},
+ {id:'p_camard462',t:'Arducam 2 MP (IMX462)',s:'Ard 462',ov:'imx462',d:'2 MP IMX462 Starvis camera for very low light.'},
+ {id:'p_camard296',t:'Arducam Global Shutter (IMX296)',s:'Ard 296',ov:'imx296',d:'1.58 MP color global shutter camera.'},
+ {id:'p_camard9281',t:'Arducam Global Shutter (OV9281)',s:'Ard 9281',ov:'ov9281',d:'1 MP monochrome global shutter camera. Good for tracking and machine vision.'},
+ {id:'p_camard7251',t:'Arducam Global Shutter (OV7251)',s:'Ard 7251',ov:'ov7251',d:'0.3 MP monochrome global shutter camera.'},
+ {id:'p_camard64',t:'Arducam 64 MP Hawkeye',s:'Ard 64MP',ov:'arducam-64mp',d:'64 MP autofocus camera. Very large pictures, slower capture.',n:'Needs a recent Raspberry Pi OS with libcamera. Picamera2 can take full-resolution stills'},
+ {id:'p_camard64o',t:'Arducam 64 MP OwlSight',s:'Ard OwlSight',ov:'ov64a40',d:'64 MP OV64A40 autofocus camera.',n:'Needs a recent Raspberry Pi OS with libcamera. Picamera2 can take full-resolution stills'}
+];
+ARD.forEach(function(o){
+  camPart({id:o.id,title:o.t,short:o.s,desc:o.d,needs:[ZERO_CABLE,ovNote(o.ov)].concat(o.n?[{t:o.n,ok:3}]:[])});
+});
+camPart({id:'p_camardpiv',title:'Arducam Pivariety camera',short:'Ard Pivariety',desc:'Arducam cameras with their own image processor and driver (IMX230, IMX298, IMX582, AR0234, OV2311 and others).',
+  needs:[ZERO_CABLE,{t:'Needs dtoverlay=arducam-pivariety in config.txt (the driver has been part of the Raspberry Pi kernel since 5.15.38)',ok:1},{t:'Some models also need Arducam\'s own packages. The setup script downloads Arducam\'s installer, run it with --help to see the options',ok:1}],
+  libs:COMMON_CAM_LIBS.concat([{id:'pivinst',name:'Arducam Pivariety installer',what:'Script from Arducam for the extra camera packages',lang:'System',pm:'manual',lines:['wget -O install_pivariety_pkgs.sh https://github.com/ArduCAM/Arducam-Pivariety-V4L2-Driver/releases/download/install_script/install_pivariety_pkgs.sh','chmod +x install_pivariety_pkgs.sh','# ./install_pivariety_pkgs.sh --help   lists the packages. Pick the ones your camera needs'],ok:1,def:1}]),cfg:['dtoverlay=arducam-pivariety']});
+
+/* ----- Official accessories ----- */
+regPart({id:'p_touch1',title:'Touch Display',short:'Touch 1',cat:'disp',desc:'Official 7 in 800 x 480 touchscreen on the display ribbon port.',ifaces:['DSI'],hosts:['pi3bp','pi4','pi5'],noexp:1,why:{zero2:'The Touch Display needs a display ribbon port. The Pi Zero has none',pi400:'The Pi 400 has no display ribbon port',pi500:'The Pi 500 has no display ribbon port',esp:'Needs a Pi display port'},res:{mipi:1},claims:[],
+  needs:[{t:'Connects to the display ribbon port and needs its own power connection, from the Pi 5 V and GND pins or from a USB cable',ok:3}],libs:[],recipes:['Dashboard','Touch control panel'],recs:[{part:'p_cam3',why:'Large preview of what the camera sees'}]});
+regPart({id:'p_sensehat',title:'Sense HAT',short:'Sense HAT',cat:'sens',desc:'Official HAT with an 8 x 8 LED matrix, joystick and sensors for motion, temperature, humidity and pressure.',ifaces:['I2C'],hosts:['zero2','pi5'],why:{esp:'Needs a Pi 40-pin header'},
+  claims:[{g:2,r:'SDA',sh:1},{g:3,r:'SCL',sh:1}],
+  outs:[{n:'temp C',t:'num',min:-20,max:60,step:.1,v:24},{n:'humidity %',t:'num',min:0,max:100,step:1,v:45},{n:'pressure hPa',t:'num',min:950,max:1050,step:1,v:1013}],
+  needs:[{t:'Install with: sudo apt install sense-hat, then reboot. The package also enables I2C',ok:1},{t:'The LED matrix shows up as a framebuffer and the joystick as a keyboard-style input device',ok:1},{t:'The temperature sensor sits close to the Pi, so it reads warm',ok:3}],
+  libs:[{id:'sensehat',name:'sense-hat',what:'Official package and Python library (from sense_hat import SenseHat)',lang:'Python',pm:'apt',pkg:'sense-hat',ok:1,def:1}],recipes:['Weather station','Tilt game'],recs:[{part:'eink',why:'Readings stay on the panel'}]});
+regPart({id:'p_aihat',title:'AI HAT+',short:'AI HAT+',cat:'sens',desc:'Neural network accelerator for the Pi 5 on the PCIe port. 13 TOPS (Hailo-8L) or 26 TOPS (Hailo-8). The AI HAT+ 2 (Hailo-10H, 40 TOPS, 8 GB) also fits.',ifaces:['PCIe'],hosts:['pi5'],noexp:1,why:{zero2:'Needs the Pi 5 PCIe port',pi4:'Needs the Pi 5 PCIe port',pi3bp:'Needs the Pi 5 PCIe port',pi400:'Needs the Pi 5 PCIe port',pi500:'The Pi 500 does not expose the PCIe port to a HAT',esp:'Needs a Pi 5'},
+  claims:[],needs:[{t:'Connects to the Pi 5 PCIe port with a flat cable and sits on the 40-pin header with a stacking header',ok:1},{t:'Install with: sudo apt install dkms hailo-all, then reboot. The AI HAT+ 2 uses hailo-h10-all instead and the two cannot be installed together',ok:1},{t:'Check it with: hailortcli fw-control identify',ok:1},{t:'An Active Cooler on the Pi 5 is recommended',ok:1}],
+  libs:[{id:'hailo',name:'hailo-all',what:'Hailo drivers, runtime and Raspberry Pi integration',lang:'System',pm:'apt',pkg:'dkms hailo-all',ok:1,def:1}],recipes:['Object detection','Pose estimation'],recs:[{part:'p_camai',why:'Camera with on-board AI, a lighter alternative'}]});
+
+/* ----- Sensors (package names and class names checked against the PyPI releases) ----- */
+function ada1(id,name,what,pkg){return {id:id,name:name,what:what||'CircuitPython driver',lang:'Python',pm:'pip',pkg:pkg,blinka:1,ok:1,def:1}}
+var I2CTOOLS={id:'i2ctools',name:'i2c-tools',what:'i2cdetect shows the address',lang:'Shell',pm:'apt',pkg:'i2c-tools',ok:1,def:1};
+var I2C_C=[{g:2,r:'SDA',sh:1},{g:3,r:'SCL',sh:1}];
+function i2cNeeds(addrText,more){return [{t:'Enable I2C',ok:1,host:['zero2','pi5']},{t:addrText,ok:1}].concat(more||[])}
+function sensPart(o){
+  var X=Object.assign({cat:'sens',ifaces:['I2C'],hosts:['zero2','pi5','esp'],why:{},claims:I2C_C,recipes:[],recs:[{part:'p_ssd1306',why:'Live readout'}]},o);
+  X.libs=(X.libs||[]).concat(X.noI2cTools?[]:[I2CTOOLS]);regPart(X);BB_OK[X.id]=1;BBX[X.id]=X.bbx||{v:'v33'};
+}
+sensPart({id:'p_bmp280',title:'BMP280',short:'BMP280',desc:'Temperature and pressure over I2C. Like the BME280 without humidity.',addr:['0x76','0x77'],
+  outs:[{n:'temp C',t:'num',min:-20,max:50,step:.1,v:21},{n:'pressure hPa',t:'num',min:950,max:1050,step:1,v:1013}],needs:i2cNeeds('Address 0x76 or 0x77, set by a solder pad'),
+  libs:[ada1('adabmp','Adafruit BMP280','CircuitPython driver','adafruit-circuitpython-bmp280')],recipes:['Altitude and weather log'],recs:[{part:'eink',why:'Readings stay on the panel'}]});
+sensPart({id:'p_bme680',title:'BME680',short:'BME680',desc:'Temperature, humidity, pressure and a gas resistance reading for air quality, over I2C.',addr:['0x76','0x77'],
+  outs:[{n:'temp C',t:'num',min:-20,max:50,step:.1,v:21},{n:'humidity %',t:'num',min:0,max:100,step:1,v:45},{n:'pressure hPa',t:'num',min:950,max:1050,step:1,v:1013},{n:'gas ohms',t:'num',min:0,max:500000,step:100,v:50000}],
+  needs:i2cNeeds('Address 0x76 or 0x77, set by a solder pad',[{t:'The gas reading needs a few minutes of warm-up and is a trend, not a calibrated air quality number',ok:3}]),
+  libs:[ada1('adabme680','Adafruit BME680','CircuitPython driver','adafruit-circuitpython-bme680')],recipes:['Air quality trend','Greenhouse log'],recs:[{part:'eink',why:'Readings stay on the panel'}]});
+sensPart({id:'p_sht31',title:'SHT31',short:'SHT31',desc:'Accurate temperature and humidity over I2C.',addr:['0x44','0x45'],
+  outs:[{n:'temp C',t:'num',min:-20,max:60,step:.1,v:22},{n:'humidity %',t:'num',min:0,max:100,step:1,v:50}],needs:i2cNeeds('Address 0x44, or 0x45 with the ADDR pin tied high'),
+  libs:[ada1('adasht31','Adafruit SHT31-D','CircuitPython driver','adafruit-circuitpython-sht31d')],recipes:['Room climate log']});
+sensPart({id:'p_sht4x',title:'SHT4x',short:'SHT4x',desc:'Newer, smaller temperature and humidity sensor over I2C (SHT40, SHT41, SHT45).',addr:['0x44'],
+  outs:[{n:'temp C',t:'num',min:-20,max:60,step:.1,v:22},{n:'humidity %',t:'num',min:0,max:100,step:1,v:50}],needs:i2cNeeds('Address 0x44'),
+  libs:[ada1('adasht4x','Adafruit SHT4x','CircuitPython driver','adafruit-circuitpython-sht4x')],recipes:['Room climate log']});
+sensPart({id:'p_scd40',title:'SCD40 CO2',short:'SCD40',desc:'True CO2 sensor (NDIR photoacoustic) with temperature and humidity, over I2C.',addr:['0x62'],
+  outs:[{n:'CO2 ppm',t:'num',min:400,max:5000,step:10,v:600},{n:'temp C',t:'num',min:-10,max:60,step:.1,v:23},{n:'humidity %',t:'num',min:0,max:100,step:1,v:45}],
+  needs:i2cNeeds('Address 0x62',[{t:'The first reading arrives about 5 seconds after starting, so the script waits for data',ok:1}]),
+  libs:[ada1('adascd','Adafruit SCD4x','CircuitPython driver','adafruit-circuitpython-scd4x')],recipes:['Ventilation reminder','Air quality log'],recs:[{part:'eink',why:'Slow-changing readings suit e-ink'}]});
+sensPart({id:'p_sgp30',title:'SGP30 air quality',short:'SGP30',desc:'Estimated CO2 and volatile organic compounds over I2C.',addr:['0x58'],
+  outs:[{n:'eCO2 ppm',t:'num',min:400,max:5000,step:10,v:450},{n:'TVOC ppb',t:'num',min:0,max:2000,step:5,v:30}],needs:i2cNeeds('Address 0x58',[{t:'The first readings are fixed values while the sensor warms up for about 15 seconds',ok:3}]),
+  libs:[ada1('adasgp','Adafruit SGP30','CircuitPython driver','adafruit-circuitpython-sgp30')],recipes:['Air quality log']});
+sensPart({id:'p_bh1750',title:'BH1750 light',short:'BH1750',desc:'Ambient light in lux over I2C.',addr:['0x23','0x5C'],
+  outs:[{n:'lux',t:'num',min:0,max:65000,step:1,v:300}],needs:i2cNeeds('Address 0x23, or 0x5C with the ADDR pin tied high'),
+  libs:[ada1('adabh','Adafruit BH1750','CircuitPython driver','adafruit-circuitpython-bh1750')],recipes:['Auto brightness','Light log']});
+sensPart({id:'p_tsl2591',title:'TSL2591 light',short:'TSL2591',desc:'High range ambient light in lux over I2C, from moonlight to full sun.',addr:['0x29'],
+  outs:[{n:'lux',t:'num',min:0,max:88000,step:1,v:300}],needs:i2cNeeds('Address 0x29, fixed'),
+  libs:[ada1('adatsl','Adafruit TSL2591','CircuitPython driver','adafruit-circuitpython-tsl2591')],recipes:['Light log','Sunrise camera trigger']});
+sensPart({id:'p_bno055',title:'BNO055 orientation',short:'BNO055',desc:'9-axis sensor that works out heading, roll and pitch for you, over I2C.',addr:['0x28','0x29'],
+  outs:[{n:'heading',t:'num',min:0,max:360,step:1,v:0},{n:'roll',t:'num',min:-180,max:180,step:1,v:0},{n:'pitch',t:'num',min:-90,max:90,step:1,v:0}],
+  needs:i2cNeeds('Address 0x28, or 0x29 with the ADR pin tied high',[{t:'Adafruit boards need clock stretching, which the Pi supports poorly. Lower the I2C speed if reads fail',ok:3}]),
+  libs:[ada1('adabno','Adafruit BNO055','CircuitPython driver','adafruit-circuitpython-bno055')],recipes:['Tilt display','Compass']});
+sensPart({id:'p_icm20948',title:'ICM-20948 9-axis',short:'ICM20948',desc:'Accelerometer, gyroscope and magnetometer over I2C.',addr:['0x68','0x69'],
+  outs:[{n:'accel x',t:'num',min:-20,max:20,step:.1,v:0},{n:'accel y',t:'num',min:-20,max:20,step:.1,v:0},{n:'accel z',t:'num',min:-20,max:20,step:.1,v:9.8}],needs:i2cNeeds('Address 0x68, or 0x69 with the AD0 pin tied high'),
+  libs:[ada1('adaicm','Adafruit ICM20X','CircuitPython driver','adafruit-circuitpython-icm20x')],recipes:['Tilt detector','Motion logger']});
+sensPart({id:'p_lis3dh',title:'LIS3DH accelerometer',short:'LIS3DH',desc:'3-axis accelerometer over I2C with tap detection.',addr:['0x18','0x19'],
+  outs:[{n:'accel x',t:'num',min:-20,max:20,step:.1,v:0},{n:'accel y',t:'num',min:-20,max:20,step:.1,v:0},{n:'accel z',t:'num',min:-20,max:20,step:.1,v:9.8}],needs:i2cNeeds('Address 0x18, or 0x19 with the SDO pin tied high'),
+  libs:[ada1('adalis','Adafruit LIS3DH','CircuitPython driver','adafruit-circuitpython-lis3dh')],recipes:['Shake to wake','Tap counter']});
+sensPart({id:'p_vl53l1x',title:'VL53L1X distance',short:'VL53L1X',desc:'Laser time-of-flight distance sensor over I2C, up to about 4 m.',addr:['0x29'],
+  outs:[{n:'distance mm',t:'num',min:0,max:4000,step:1,v:800}],needs:i2cNeeds('Address 0x29 unless you move it with the XSHUT pin'),
+  libs:[ada1('adavl1','Adafruit VL53L1X','CircuitPython driver','adafruit-circuitpython-vl53l1x')],recipes:['Parking helper','Presence check']});
+sensPart({id:'p_ina219',title:'INA219 current',short:'INA219',desc:'Measures voltage, current and power of a load over I2C. Good for battery projects.',addr:['0x40','0x41','0x44','0x45'],
+  outs:[{n:'volts',t:'num',min:0,max:26,step:.01,v:5},{n:'current mA',t:'num',min:-3200,max:3200,step:1,v:250},{n:'power W',t:'num',min:0,max:80,step:.01,v:1.25}],needs:i2cNeeds('Address 0x40 by default, set by two solder pads'),
+  libs:[ada1('adaina','Adafruit INA219','CircuitPython driver','adafruit-circuitpython-ina219')],recipes:['Battery monitor','Power log']});
+sensPart({id:'p_ds3231',title:'DS3231 clock',short:'DS3231',desc:'Accurate real-time clock with a battery backup, over I2C. Keeps time with no network.',addr:['0x68'],
+  outs:[{n:'temp C',t:'num',min:-10,max:60,step:.25,v:25}],needs:i2cNeeds('Address 0x68, fixed',[{t:'Shares address 0x68 with the MPU-6050 and ICM-20948, so those cannot be on the same bus at the same address',ok:1}]),
+  libs:[ada1('adads','Adafruit DS3231','CircuitPython driver','adafruit-circuitpython-ds3231')],recipes:['Timestamps with no network']});
+sensPart({id:'p_max31855',title:'MAX31855 thermocouple',short:'MAX31855',desc:'Reads a K-type thermocouple over SPI. Measures from far below freezing to over 1000 C.',ifaces:['SPI'],hosts:['zero2','pi5'],
+  claims:[{g:11,r:'SCLK',sh:1},{g:9,r:'MISO',sh:1},{g:5,r:'CS',flex:1}],noI2cTools:1,pinsEdit:true,
+  outs:[{n:'temp C',t:'num',min:-100,max:1000,step:.25,v:25}],needs:[{t:'Enable SPI',ok:1,host:['zero2','pi5']},{t:'Chip select defaults to GPIO 5. Any free GPIO works',ok:1}],
+  libs:[ada1('adamax','Adafruit MAX31855','CircuitPython driver','adafruit-circuitpython-max31855')],recipes:['Kiln or oven log']});
+sensPart({id:'p_pms5003',title:'PMS5003 particles',short:'PMS5003',desc:'Dust and smoke particle counter on the serial port. Reports PM1.0, PM2.5 and PM10.',ifaces:['UART'],hosts:['zero2','pi5'],why:{esp:'Use an ESP32 library instead'},
+  claims:[{g:14,r:'TXD'},{g:15,r:'RXD'}],noI2cTools:1,bbx:{v:'v5',cross:{TXD:'RX',RXD:'TX'},note:'The PMS5003 is powered from 5V and its signal pins are 3.3V. Module TX goes to the Pi RXD pin and module RX to the Pi TXD pin.'},
+  outs:[{n:'PM1.0',t:'num',min:0,max:500,step:1,v:5},{n:'PM2.5',t:'num',min:0,max:500,step:1,v:9},{n:'PM10',t:'num',min:0,max:500,step:1,v:12}],
+  needs:[{t:'Enable the serial port and turn the login console off',ok:1,host:['zero2','pi5']},{t:'Powered from 5 V. The fan needs about a minute to settle before readings are steady',ok:3}],
+  libs:[ada1('adapm25','Adafruit PM2.5','CircuitPython driver (UART and I2C)','adafruit-circuitpython-pm25'),{id:'pyserial',name:'pyserial',what:'Read the serial port from Python',lang:'Python',pm:'apt',pkg:'python3-serial',ok:1,def:1}],recipes:['Air quality log'],recs:[{part:'eink',why:'Slow-changing readings suit e-ink'}]});
+/* live reading code, used by generated screen scripts */
+Object.assign(SENS,{
+  p_bmp280:{imp:['import board','import adafruit_bmp280'],init:['_i2c = board.I2C()','_bmp_{id} = adafruit_bmp280.Adafruit_BMP280_I2C(_i2c, address=0x76)'],read:{'temp C':'round(_bmp_{id}.temperature, 1)','pressure hPa':'round(_bmp_{id}.pressure)'}},
+  p_bme680:{imp:['import board','import adafruit_bme680'],init:['_i2c = board.I2C()','_bme680_{id} = adafruit_bme680.Adafruit_BME680_I2C(_i2c, address=0x76)'],read:{'temp C':'round(_bme680_{id}.temperature, 1)','humidity %':'round(_bme680_{id}.relative_humidity)','pressure hPa':'round(_bme680_{id}.pressure)','gas ohms':'_bme680_{id}.gas'}},
+  p_sht31:{imp:['import board','import adafruit_sht31d'],init:['_i2c = board.I2C()','_sht_{id} = adafruit_sht31d.SHT31D(_i2c)'],read:{'temp C':'round(_sht_{id}.temperature, 1)','humidity %':'round(_sht_{id}.relative_humidity)'}},
+  p_sht4x:{imp:['import board','import adafruit_sht4x'],init:['_i2c = board.I2C()','_sht4_{id} = adafruit_sht4x.SHT4x(_i2c)'],read:{'temp C':'round(_sht4_{id}.temperature, 1)','humidity %':'round(_sht4_{id}.relative_humidity)'}},
+  p_scd40:{imp:['import board','import adafruit_scd4x'],init:['_i2c = board.I2C()','_scd_{id} = adafruit_scd4x.SCD4X(_i2c)','_scd_{id}.start_periodic_measurement()'],read:{'CO2 ppm':'(_scd_{id}.CO2 or 0)','temp C':'round(_scd_{id}.temperature or 0, 1)','humidity %':'round(_scd_{id}.relative_humidity or 0)'}},
+  p_sgp30:{imp:['import board','import adafruit_sgp30'],init:['_i2c = board.I2C()','_sgp_{id} = adafruit_sgp30.Adafruit_SGP30(_i2c)','_sgp_{id}.iaq_init()'],read:{'eCO2 ppm':'_sgp_{id}.eCO2','TVOC ppb':'_sgp_{id}.TVOC'}},
+  p_bh1750:{imp:['import board','import adafruit_bh1750'],init:['_i2c = board.I2C()','_bh_{id} = adafruit_bh1750.BH1750(_i2c)'],read:{'lux':'round(_bh_{id}.lux)'}},
+  p_tsl2591:{imp:['import board','import adafruit_tsl2591'],init:['_i2c = board.I2C()','_tsl_{id} = adafruit_tsl2591.TSL2591(_i2c)'],read:{'lux':'round(_tsl_{id}.lux)'}},
+  p_vl53l1x:{imp:['import board','import adafruit_vl53l1x'],init:['_i2c = board.I2C()','_vl1_{id} = adafruit_vl53l1x.VL53L1X(_i2c)','_vl1_{id}.start_ranging()'],read:{'distance mm':'round((_vl1_{id}.distance or 0) * 10)'}},
+  p_ina219:{imp:['import board','from adafruit_ina219 import INA219'],init:['_i2c = board.I2C()','_ina_{id} = INA219(_i2c)'],read:{'volts':'round(_ina_{id}.bus_voltage, 2)','current mA':'round(_ina_{id}.current)','power W':'round(_ina_{id}.power, 2)'}},
+  p_ds3231:{imp:['import board','import adafruit_ds3231'],init:['_i2c = board.I2C()','_rtc_{id} = adafruit_ds3231.DS3231(_i2c)'],read:{'temp C':'round(_rtc_{id}.temperature, 1)'}},
+  p_lis3dh:{imp:['import board','import adafruit_lis3dh'],init:['_i2c = board.I2C()','_lis_{id} = adafruit_lis3dh.LIS3DH_I2C(_i2c)'],read:{'accel x':'round(_lis_{id}.acceleration[0], 1)','accel y':'round(_lis_{id}.acceleration[1], 1)','accel z':'round(_lis_{id}.acceleration[2], 1)'}},
+  p_icm20948:{imp:['import board','import adafruit_icm20x'],init:['_i2c = board.I2C()','_icm_{id} = adafruit_icm20x.ICM20948(_i2c)'],read:{'accel x':'round(_icm_{id}.acceleration[0], 1)','accel y':'round(_icm_{id}.acceleration[1], 1)','accel z':'round(_icm_{id}.acceleration[2], 1)'}},
+  p_bno055:{imp:['import board','import adafruit_bno055'],init:['_i2c = board.I2C()','_bno_{id} = adafruit_bno055.BNO055_I2C(_i2c)'],read:{'heading':'round((_bno_{id}.euler or (0, 0, 0))[0] or 0)','roll':'round((_bno_{id}.euler or (0, 0, 0))[1] or 0)','pitch':'round((_bno_{id}.euler or (0, 0, 0))[2] or 0)'}},
+  p_sensehat:{imp:['from sense_hat import SenseHat'],init:['_sense_{id} = SenseHat()'],read:{'temp C':'round(_sense_{id}.get_temperature(), 1)','humidity %':'round(_sense_{id}.get_humidity())','pressure hPa':'round(_sense_{id}.get_pressure())'}},
+  p_max31855:{imp:['import board','import digitalio','import adafruit_max31855'],init:['_spi = board.SPI()','_cs_{id} = digitalio.DigitalInOut(board.D{CS})','_tc_{id} = adafruit_max31855.MAX31855(_spi, _cs_{id})'],read:{'temp C':'round(_tc_{id}.temperature, 1)'}}
+});
+
+/* ----- Outputs ----- */
+CATS.push({id:'out',name:'Outputs',blurb:'Light, sound, motion and switching'});
+var GPIOZ={id:'gpiozero',name:'gpiozero',what:'LEDs, buzzers, relays and servos with a few lines',lang:'Python',pm:'apt',pkg:'python3-gpiozero',ok:1,def:1};
+function outPart(o){
+  var X=Object.assign({cat:'out',ifaces:['GPIO'],hosts:['zero2','zerow','full','pi5'],why:{esp:'Use an ESP32 library instead'},pinsEdit:true,recipes:[],recs:[],libs:[GPIOZ]},o);
+  X.claims=X.claims.map(function(c){return Object.assign({flex:1},c)});
+  regPart(X);BB_OK[X.id]=1;BBX[X.id]=X.bbx||{v:'v33'};
+}
+outPart({id:'p_led',title:'LED',short:'LED',desc:'A single LED on one GPIO pin, with a series resistor.',claims:[{g:12,r:'OUT'}],
+  ins:[{n:'on',t:'bool',d:false}],
+  needs:[{t:'Always use a series resistor, about 330 ohm for a 3.3 V pin',ok:1},{t:'Long leg (anode) toward the GPIO pin, short leg to GND',ok:1}],
+  bbx:{v:null,labels:{OUT:'anode (long leg)'},gndLabel:'cathode (short leg)',note:'Put a 330 ohm resistor in series with either leg.'},
+  recipes:['Status light','Recording indicator'],recs:[{part:'p_button',why:'Toggle it by hand'}]});
+outPart({id:'p_buzzer',title:'Buzzer',short:'Buzzer',desc:'A small buzzer on one GPIO pin. Active types beep on their own, passive types play tones.',claims:[{g:13,r:'OUT'}],
+  ins:[{n:'on',t:'bool',d:false}],
+  needs:[{t:'Active buzzers sound when the pin is high. Passive buzzers need a pulsed signal to make a tone',ok:3},{t:'Small buzzers can run from a GPIO pin. Larger ones need a transistor',ok:3}],
+  bbx:{v:null,labels:{OUT:'+ (signal)'},gndLabel:'- (ground)'},recipes:['Alarm','Button feedback'],recs:[{part:'p_pir',why:'Sound when motion is seen'}]});
+outPart({id:'p_relay',title:'Relay module',short:'Relay',desc:'A relay board that switches a bigger load from one GPIO signal.',claims:[{g:23,r:'IN'}],
+  ins:[{n:'on',t:'bool',d:false}],
+  needs:[{t:'Most relay boards have a VCC pin for the coil. Check whether yours wants 5 V or 3.3 V',ok:3},{t:'Many boards switch on when the signal is low. Look for an active-low label on yours',ok:3},{t:'Only switch mains voltage if you are trained to, and keep it enclosed',ok:3}],
+  bbx:{v:'v5',labels:{IN:'IN (signal)'},note:'Check your board: some relay modules are happy on 3.3 V, many want 5 V for the coil.'},recipes:['Switch a lamp or fan','Timed power'],recs:[]});
+outPart({id:'p_servo',title:'Servo',short:'Servo',desc:'A hobby servo moved by a pulse signal from one GPIO pin.',claims:[{g:18,r:'SIGNAL'}],
+  ins:[{n:'angle',t:'num',d:90}],
+  needs:[{t:'Power the servo from its own 5 V supply, not from a GPIO pin. Join its ground to the Pi ground',ok:3},{t:'GPIO18 is a hardware PWM pin, which gives steadier pulses',ok:3}],
+  bbx:{v:'v5',labels:{SIGNAL:'signal (orange or white)'},note:'Servos can pull more current than the Pi 5 V pin likes. Use an external 5 V supply and join the grounds.'},recipes:['Pan and tilt','Door latch'],recs:[{part:'p_camai',why:'Aim a camera'}]});
+outPart({id:'p_neopixel',title:'NeoPixel strip',short:'NeoPixel',desc:'Addressable RGB LEDs (WS2812 style) on one data pin.',claims:[{g:18,r:'DATA'}],
+  hosts:['zero2','zerow','full'],why:{pi5:'The rpi_ws281x library does not support the Pi 5',esp:'Use an ESP32 library instead'},noexp:1,
+  ins:[{n:'color',t:'any',d:'#ff6600'},{n:'brightness',t:'num',d:50}],
+  needs:[{t:'Power the strip from its own 5 V supply and join its ground to the Pi ground',ok:3},{t:'The data line is 5 V logic. A level shifter is the safe choice',ok:3}],
+  bbx:{v:'v5',labels:{DATA:'DIN (data in)'},note:'Use an external 5 V supply for longer strips and join the grounds.'},recipes:['Ambient light','Status bar'],recs:[]});
+
+/* ----- catalog 2: finish (runs once everything is registered) ----- */
+function expandH(list,noexp){
+  var out=[];function add(k){if(out.indexOf(k)<0)out.push(k)}
+  (list||[]).forEach(function(k){if(FAMS[k]&&!HOSTS[k]){FAMS[k].forEach(add);return}add(k)});
+  if(noexp)return out;
+  var z=out.indexOf('zero2')>=0,p=out.indexOf('pi5')>=0,e=out.indexOf('esp')>=0;
+  if(z)add('zerow');
+  if(z&&p)['pi4','pi3bp','pi400'].forEach(add);
+  if(p)add('pi500');
+  if(e)FAMS.mcu.forEach(add);
+  return out;
+}
+function catalogFinish(){
+  ['lcd13','oled13','lcd35a','lcd35b','lcd35c','eink','eink27','eink352','eink37','eink583','eink75','p_sensehat','p_aihat'].forEach(function(k){if(ADDONS[k])IS_HAT[k]=1});
+  delete IS_HAT.ps;
+  Object.keys(ADDONS).forEach(function(k){
+    var A=ADDONS[k],orig=A.hosts.slice();
+    if(OLD_IDS.indexOf(k)<0){
+      A.needs=(A.needs||[]).map(function(x){return x.ok===1||x.ok===2||x.ok===3?x:Object.assign({},x,{ok:3})});
+      A.libs=(A.libs||[]).map(function(x){return x.ok===1||x.ok===2||x.ok===3?x:Object.assign({},x,{ok:3})});
+      if(A.ok===0||A.ok===undefined)A.ok=3;
+    }
+    A.hosts=expandH(A.hosts,A.noexp);
+    (A.needs||[]).forEach(function(nd){if(nd.host){nd.host=expandH(nd.host);if(nd.host.indexOf('pico')>=0)nd.t=nd.t.replace(/^On the ESP32-S3 /,'On this board ')}});
+    if(IS_HAT[k]&&!A.mount){A.hosts=A.hosts.filter(function(h){return h!=='pi400'&&h!=='pi500'})}
+    if(k==='p_touch2'){['pi4','pi3bp'].forEach(function(h){if(A.hosts.indexOf(h)<0)A.hosts.push(h)})}
+    A.why=A.why||{};
+    Object.keys(HOSTS).forEach(function(h){
+      if(A.hosts.indexOf(h)>=0||A.why[h])return;
+      var f=HOSTS[h].fam,m;
+      if(f==='mcu'){m=A.why.esp;if(m&&h!=='esp')m=m.replace(/The ESP32-S3 round LCD board/,'The '+HOSTS[h].title+' board').replace(/ESP32 library/,'microcontroller library').replace(/ESP32 display library/,'microcontroller display library').replace(/ESP32-S3 has/,HOSTS[h].title+' has')}
+      else if(h==='pi400'||h==='pi500')m=IS_HAT[k]?'The '+HOSTS[h].title+' header is on the back, so a HAT cannot plug in':(A.why.pi5||A.why.zero2);
+      else if(f==='full')m=A.why.pi5||A.why.zero2;
+      else if(f==='pi5')m=A.why.pi5;
+      else if(f==='zero')m=A.why.zero2;
+      if(m)A.why[h]=m;
+    });
+  });
+}
+
+
 function connOfSignal(r){
   if(r==='SDA'||r==='SCL')return'i2c';
   if(r==='MOSI'||r==='MISO'||r==='SCLK'||r==='CS')return'spi';
@@ -1859,6 +2198,7 @@ function pdfBuild(title){
 function mountKind(n){
   var A=ADDONS[n.type];
   if(n.type==='p_bb')return'Solderless breadboard';
+  if(A.mount)return A.mount;
   if(IS_HAT[n.type])return'Sits on the 40-pin header';
   var bb=bbFor(n);if(bb)return'Wired on the breadboard (see the wiring table)';
   var f=A.ifaces||[];
@@ -1930,7 +2270,7 @@ function guideHost(pdf,hn,multi,state){
   /* 2. ready */
   pdf.title(pre+'1. Get ready');
   pdf.h2('You will need');
-  var need=['A microSD card, 16 GB or larger','A power supply for the '+T.title+(hn.type==='pi5'?' (the official 27 W USB-C supply is recommended)':' (5 V, 2.5 A, micro-USB)'),'A computer with Wi-Fi, to flash the card and to connect to the Pi','Your Wi-Fi name and password'];
+  var need=['A microSD card, 16 GB or larger','A power supply for the '+T.title+(hn.type==='pi5'||hn.type==='pi500'?' (the official 27 W USB-C supply is recommended)':hn.type==='pi4'?' (5 V, 3 A, USB-C)':hn.type==='pi400'?' (the official 5.1 V, 3 A USB-C supply)':' (5 V, 2.5 A, micro-USB)'),'A computer with Wi-Fi, to flash the card and to connect to the Pi','Your Wi-Fi name and password'];
   parts.forEach(function(p){need.push(ADDONS[p.type].title)});
   pdf.bullets(need);
   var nd=[];
@@ -1945,7 +2285,7 @@ function guideHost(pdf,hn,multi,state){
     'Choose your SD card.',
     'Open the settings (the Edit Settings or gear button). Set a hostname, a username and password, your Wi-Fi name and password, and turn on SSH. Menu names change between Imager versions.',
     'Write the card. Put it in the Pi and connect power. The first start takes a few minutes.']);
-  if(hn.type==='zero2')pdf.p('The Zero 2 connects to 2.4 GHz Wi-Fi only.',{size:9,color:'#666666'});
+  if(hn.type==='zero2'||hn.type==='zerow')pdf.p('The '+T.short+' connects to 2.4 GHz Wi-Fi only.',{size:9,color:'#666666'});
   /* 4. connect */
   pdf.title(pre+'3. Connect to the Pi');
   pdf.p('On your computer, open a terminal (Terminal on Mac and Linux, PowerShell on Windows). Replace the user name and host name with the ones you chose in the Imager.');
@@ -2527,7 +2867,7 @@ function closeSheet(){SH=null;$('#sheet').classList.remove('open');$('#back').cl
 $('#shClose').addEventListener('click',closeSheet);
 $('#back').addEventListener('click',closeSheet);
 
-var PAL=[['Hardware','hw',['zero2','pi5','esp']],['Add-ons','hw',['eink','lcd','ps']],['Inputs','in',['slider','toggle','text','timer']],['Logic','logic',['math','compare','select','code','action']],['Storage','in',['photolib']],['View','view',['readout','svgpad','parts','note']]];
+var PAL=[['Hardware','hw',Object.keys(HOSTS)],['Add-ons','hw',['eink','lcd','ps']],['Inputs','in',['slider','toggle','text','timer']],['Logic','logic',['math','compare','select','code','action']],['Storage','in',['photolib']],['View','view',['readout','svgpad','parts','note']]];
 function openPalette(only){
   openSheet(only?'Add '+only[0].toLowerCase():'Add a block',function(b){
     if(!only){
@@ -2649,10 +2989,10 @@ function pyF(s){
 }
 /* ---------- live logic in generated scripts, and refresh settings ---------- */
 function rfOf(n){
-  var d=n.props.dsp,r=d.refresh||{},ei=n.type==='eink';
+  var d=n.props.dsp,r=d.refresh||{},ei=isEink(n.type),EP=epdOf(n.type);
   var every=Number(r.every);if(!(every>0))every=ei?10:1;
   var fe=r.fullEvery===undefined?20:Number(r.fullEvery);if(!(fe>=0))fe=20;
-  return{every:every,mode:r.mode==='full'?'full':'partial',fullEvery:Math.floor(fe),skip:r.skip!==false};
+  return{every:every,mode:(r.mode==='full'||(EP&&!EP.part))?'full':'partial',fullEvery:Math.floor(fe),skip:r.skip!==false};
 }
 function invOf(n){
   var d=n.props.dsp,t=TY[n.type];
@@ -2699,8 +3039,8 @@ function liveSrc(n,i,st){
 function srcInfo(n,i){
   var w=INW[n.id+':'+i];if(!w)return{kind:'def'};
   var s=NM[w.from.n];
-  if(s.type==='ps'&&w.from.p===0)return{kind:'battery',from:s};
-  if((s.type==='zero2'||s.type==='pi5')&&w.from.p===0)return{kind:'cpu',from:s};
+  if(isPs(s.type)&&w.from.p===0)return{kind:'battery',from:s};
+  if(HOSTS[s.type]&&HOSTS[s.type].pi&&w.from.p===0)return{kind:'cpu',from:s};
   if(s.type==='photolib')return{kind:'photolib',from:s,p:w.from.p};
   if(SENS[s.type]&&sensorLive(s,w.from.p))return{kind:'sensor',from:s,p:w.from.p};
   return{kind:'snap',from:s};
@@ -2708,8 +3048,8 @@ function srcInfo(n,i){
 function genScripts(n){
   var host=hostOf(n),T=n.type,out=[];
   if(!host)return{msg:'Mount this on a Pi in the node first. Scripts are generated for the host it is mounted on.'};
-  if(host.type==='esp')return{msg:'Scripts for the ESP32-S3 are not generated yet. The layout still works, and you can export it as a PNG.'};
-  var d=n.props.dsp,c=dcfg(n),ev=cache[n.id],mono=c.mono,pi5=host.type==='pi5';
+  if(!HOSTS[host.type].pi)return{msg:'Scripts for the '+HOSTS[host.type].title+' are not generated yet. The layout still works, and you can export it as a PNG.'};
+  var d=n.props.dsp,c=dcfg(n),ev=cache[n.id],mono=c.mono,pi5=!!HOSTS[host.type].gpiod,AX=ADDONS[T];
   var needBat=false,needCpu=false,assign=[],sens=[],usedIcons={},lst={},rf=rfOf(n);
   var SPI=strPorts(n);
   SPI.forEach(function(i,j){
@@ -2758,34 +3098,37 @@ function genScripts(n){
   });
   var iconNames=Object.keys(usedIcons);
   if(iconNames.length){var imap={};iconNames.forEach(function(k){imap[k]=ICON_DEFS[k]});helpers.push('ICONS = '+JSON.stringify(imap),'');ICON_PY.forEach(function(l){helpers.push(l)})}
-  var setup,init,render,part,pre;
+  var setup,init,render,part,pre,cInit,cShow,cMono;
+  var fl=function(a,i){return a.map(function(l){return l.split('{i}').join(i)})};
+  var ind=function(a,k){var sp=new Array(k+1).join(' ');return a.map(function(l){return sp+l})};
   var apt=pi5?['sudo apt install -y python3-pil python3-numpy python3-spidev python3-gpiozero python3-rpi-lgpio git','# Pi 5: python3-rpi-lgpio replaces RPi.GPIO. Remove python3-rpi.gpio first if it is installed.']:['sudo apt install -y python3-pil python3-numpy python3-spidev python3-gpiozero git'];
   var fnl=function(arr){return arr.join('\n')};
-  if(T==='eink'){
-    pre=['import sys',"sys.path.append('e-Paper/RaspberryPi_JetsonNano/python/lib')","PIC = 'e-Paper/RaspberryPi_JetsonNano/python/pic'",'from waveshare_epd import epd2in13_V4','from PIL import Image, ImageDraw, ImageFont','import time',''];
+  if(isEink(T)){
+    var E=epdOf(T),M=E.mod,fb=E.base||E.full,pt=E.part||fb;
+    pre=['import sys',"sys.path.append('e-Paper/RaspberryPi_JetsonNano/python/lib')","PIC = 'e-Paper/RaspberryPi_JetsonNano/python/pic'",'from waveshare_epd import '+M,'from PIL import Image, ImageDraw, ImageFont','import time',''];
     setup=fnl(['sudo raspi-config nonint do_spi 0','sudo apt update'].concat(apt,['git clone https://github.com/waveshare/e-Paper'],needBat?['# PiSugar battery readout needs the PiSugar power manager:','wget -O pisugar-power-manager.sh https://cdn.pisugar.com/release/pisugar-power-manager.sh','bash pisugar-power-manager.sh -c release']:[]));
-    init=fnl(pre.slice(0,4).concat(['','epd = epd2in13_V4.EPD()','epd.init()','epd.Clear(0xFF)','epd.sleep()']));
+    init=fnl(pre.slice(0,4).concat(['','epd = '+M+'.EPD()'],E.init,E.clear,['epd.sleep()']));
     var frame=['def font(size):',"    return ImageFont.truetype(PIC + '/Font.ttc', size)",'','']
-      .concat(helpers,['def draw_frame():'],assign.map(function(a){return '    '+a}),["    img = Image.new('1', (epd.height, epd.width), "+bg+')','    d = ImageDraw.Draw(img)'],els.map(function(e){return '    '+e}),['    return img','','']);
-    render=fnl(pre.concat(frame,['epd = epd2in13_V4.EPD()','epd.init()','epd.display(epd.getbuffer(draw_frame()))','epd.sleep()']));
+      .concat(helpers,['def draw_frame():'],assign.map(function(a){return '    '+a}),["    img = Image.new('1', ("+E.sz+"), "+bg+')','    d = ImageDraw.Draw(img)'],els.map(function(e){return '    '+e}),['    return img','','']);
+    render=fnl(pre.concat(frame,['epd = '+M+'.EPD()'],E.init,fl(E.full,'draw_frame()'),['epd.sleep()']));
     part=fnl(pre.concat(frame,[
       'REFRESH_SECONDS = '+rf.every+'      # how often to redraw',
-      'PARTIAL = '+(rf.mode==='partial'?'True':'False')+'            # True: quick partial updates. False: full refresh every time (slow, flashes)',
+      'PARTIAL = '+(E.part&&rf.mode==='partial'?'True':'False')+'            # True: quick partial updates. False: full refresh every time (slow, flashes)'+(E.part?'':'. This panel has no partial refresh'),
       'FULL_REFRESH_EVERY = '+rf.fullEvery+'    # do a full refresh after this many updates to clear ghosting (0 = never)',
       'SKIP_UNCHANGED = '+(rf.skip?'True':'False')+'   # do not touch the panel when the picture has not changed','',
-      'epd = epd2in13_V4.EPD()','epd.init()','last = draw_frame()','epd.displayPartBaseImage(epd.getbuffer(last))','updates = 0','',
+      'epd = '+M+'.EPD()'],E.init,['last = draw_frame()'],fl(fb,'last'),E.pinit,['updates = 0','',
       'try:','    while True:','        time.sleep(REFRESH_SECONDS)','        frame = draw_frame()',
       '        if SKIP_UNCHANGED and frame.tobytes() == last.tobytes():','            continue',
       '        last = frame','        updates += 1',
-      '        if not PARTIAL or (FULL_REFRESH_EVERY and updates % FULL_REFRESH_EVERY == 0):',
-      '            epd.init()','            epd.displayPartBaseImage(epd.getbuffer(frame))   # full refresh, and resets the partial baseline','        else:',
-      '            epd.displayPartial(epd.getbuffer(frame))',
-      'except KeyboardInterrupt:','    epd.init()','    epd.sleep()']));
+      '        if not PARTIAL or (FULL_REFRESH_EVERY and updates % FULL_REFRESH_EVERY == 0):'],
+      ind(E.init,12),['            # full refresh, and resets the partial baseline'],ind(fl(fb,'frame'),12),ind(E.pinit,12),['        else:'],ind(fl(pt,'frame'),12),
+      ['except KeyboardInterrupt:'],ind(E.init,4),['    epd.sleep()']));
     out=[{id:'setup',label:'Setup',file:'setup.sh',code:setup,note:'Run once on the Pi. Enables SPI and fetches the Waveshare driver.'},
       {id:'init',label:'Init and clear',file:'init_clear.py',code:init,note:'Wipes the panel to white, then puts it to sleep.'},
       {id:'render',label:'Render layout',file:'render.py',code:render,note:'Rebuilt from the canvas above every time you change it. Fonts use the Waveshare pic folder.'},
-      {id:'part',label:'Refresh loop',file:'partial_refresh.py',code:part,note:'Redraws every '+rf.every+' s ('+(rf.mode==='partial'?'partial refresh, full refresh every '+(rf.fullEvery||'never')+' updates':'full refresh each time')+'). Change the four settings at the top, or in the Refresh section of the layout page. Always call sleep() when done, and wait between refreshes as the Waveshare docs recommend.'+(rf.every<3&&rf.mode==='full'?' A full refresh takes about 2 seconds, so this interval is too short for it.':'')}];
+      {id:'part',label:'Refresh loop',file:'partial_refresh.py',code:part,note:'Redraws every '+rf.every+' s ('+(rf.mode==='partial'?'partial refresh, full refresh every '+(rf.fullEvery||'never')+' updates':'full refresh each time')+'). '+(E.part?'':'This panel has no partial refresh, so every update is a full refresh. ')+'Change the four settings at the top, or in the Refresh section of the layout page. Always call sleep() when done, and wait between refreshes as the Waveshare docs recommend.'+(rf.every<3&&rf.mode==='full'?' A full refresh takes about 2 seconds, so this interval is too short for it.':'')}];
   }else if(T==='p_ssd1306'){
+    cInit=['serial = i2c(port=1, address=0x3C)   # use 0x3D if your module does','device = ssd1306(serial)','WIDTH, HEIGHT = device.width, device.height'];cShow=['    device.display(img)'];cMono=true;
     pre=['from luma.core.interface.serial import i2c','from luma.oled.device import ssd1306','from PIL import Image, ImageDraw, ImageFont','import time',''];
     setup=fnl(['#!/bin/bash'].concat(setupLines([{A:ADDONS[T],on:function(l){return libOn(n,l)},host:host.type}])));
     var fr2=['serial = i2c(port=1, address=0x3C)','device = ssd1306(serial)','','def font(size):',"    return ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', size)",'',''].concat(helpers,['def draw_frame():'],assign.map(function(a){return '    '+a}),["    img = Image.new('1', (device.width, device.height), "+bg+')','    d = ImageDraw.Draw(img)'],els.map(function(e){return '    '+e}),['    return img','','']);
@@ -2794,7 +3137,42 @@ function genScripts(n){
     out=[{id:'setup',label:'Setup',file:'setup.sh',code:setup,note:'Run once on the Pi. Turns on I2C and installs the selected libraries.'},
       {id:'render',label:'Render layout',file:'render.py',code:render,note:'Draws the layout once. The I2C address is usually 0x3C. Change it if your module uses 0x3D.'},
       {id:'live',label:'Live loop',file:'live.py',code:live,note:'Redraws every '+rf.every+' s, so wired values stay current. Change REFRESH_SECONDS at the top.'}];
+  }else if(AX.lumaLcd){
+    var LL=AX.lumaLcd;
+    pre=['from luma.core.interface.serial import spi','from luma.lcd.device import st7789','from PIL import Image, ImageDraw, ImageFont','import time',''];
+    setup=fnl(['#!/bin/bash'].concat(setupLines([{A:AX,on:function(l){return libOn(n,l)},host:host.type}])));
+    cInit=['serial = spi(port=0, device=0, gpio_DC='+LL.dc+', gpio_RST='+LL.rst+', bus_speed_hz=32000000)','device = st7789(serial, width='+LL.w+', height='+LL.h+', gpio_LIGHT='+LL.light+')','WIDTH, HEIGHT = device.width, device.height'];cShow=['    device.display(img)'];cMono=false;
+    var frLL=cInit.slice(0,2).concat(['','def font(size):',"    return ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', size)",'',''],helpers,['def draw_frame():'],assign.map(function(a){return '    '+a}),["    img = Image.new('RGB', (device.width, device.height), "+bg+')','    d = ImageDraw.Draw(img)'],els.map(function(e){return '    '+e}),['    return img','','']);
+    render=fnl(pre.concat(frLL,['device.display(draw_frame())']));
+    var liveLL=fnl(pre.concat(frLL,['REFRESH_SECONDS = '+rf.every+'   # how often to redraw','while True:','    device.display(draw_frame())','    time.sleep(REFRESH_SECONDS)']));
+    out=[{id:'setup',label:'Setup',file:'setup.sh',code:setup,note:'Run once on the Pi. Enables SPI and installs the luma.lcd driver.'},
+      {id:'render',label:'Render layout',file:'render.py',code:render,note:'Draws the layout once with the luma.lcd driver. Pins: DC GPIO '+LL.dc+', reset GPIO '+LL.rst+', backlight GPIO '+LL.light+'.'},
+      {id:'live',label:'Live loop',file:'live.py',code:liveLL,note:'Redraws every '+rf.every+' s, so wired values stay current. Change REFRESH_SECONDS at the top.'}];
+  }else if(AX.lumaOled){
+    var LO=AX.lumaOled;
+    pre=['from luma.core.interface.serial import spi','from luma.oled.device import sh1106','from PIL import Image, ImageDraw, ImageFont','import time',''];
+    setup=fnl(['#!/bin/bash'].concat(setupLines([{A:AX,on:function(l){return libOn(n,l)},host:host.type}])));
+    cInit=['serial = spi(port=0, device=0, gpio_DC='+LO.dc+', gpio_RST='+LO.rst+')','device = sh1106(serial)','WIDTH, HEIGHT = device.width, device.height'];cShow=['    device.display(img)'];cMono=true;
+    var frLO=cInit.slice(0,2).concat(['','def font(size):',"    return ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', size)",'',''],helpers,['def draw_frame():'],assign.map(function(a){return '    '+a}),["    img = Image.new('1', (device.width, device.height), "+bg+')','    d = ImageDraw.Draw(img)'],els.map(function(e){return '    '+e}),['    return img','','']);
+    render=fnl(pre.concat(frLO,['device.display(draw_frame())']));
+    var liveLO=fnl(pre.concat(frLO,['REFRESH_SECONDS = '+rf.every+'   # how often to redraw','while True:','    device.display(draw_frame())','    time.sleep(REFRESH_SECONDS)']));
+    out=[{id:'setup',label:'Setup',file:'setup.sh',code:setup,note:'Run once on the Pi. Enables SPI and installs the luma.oled driver.'},
+      {id:'render',label:'Render layout',file:'render.py',code:render,note:'Draws the layout once with the luma.oled driver. Pins: DC GPIO '+LO.dc+', reset GPIO '+LO.rst+'.'},
+      {id:'live',label:'Live loop',file:'live.py',code:liveLO,note:'Redraws every '+rf.every+' s, so wired values stay current. Change REFRESH_SECONDS at the top.'}];
+  }else if(AX.fb){
+    pre=['import numpy as np','from PIL import Image, ImageDraw, ImageFont','import time',''];
+    setup=fnl(['#!/bin/bash'].concat(setupLines([{A:AX,on:function(l){return libOn(n,l)},host:host.type}])));
+    cInit=["FB = '/dev/fb1'   # the Waveshare overlay creates this framebuffer","with open('/sys/class/graphics/fb1/virtual_size') as f:","    WIDTH, HEIGHT = [int(x) for x in f.read().strip().split(',')]","",
+      'def to_fb(img):','    """Write a picture to the screen as 16-bit RGB565."""',"    if img.size != (WIDTH, HEIGHT):","        img = img.resize((WIDTH, HEIGHT))","    a = np.asarray(img.convert('RGB'), dtype=np.uint16)",
+      "    rgb565 = ((a[:, :, 0] & 0xF8) << 8) | ((a[:, :, 1] & 0xFC) << 3) | (a[:, :, 2] >> 3)","    with open(FB, 'wb') as f:","        f.write(rgb565.astype('<u2').tobytes())"];cShow=['    to_fb(img)'];cMono=false;
+    var frFB=cInit.concat(['','def font(size):',"    return ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', size)",'',''],helpers,['def draw_frame():'],assign.map(function(a){return '    '+a}),["    img = Image.new('RGB', (WIDTH, HEIGHT), "+bg+')','    d = ImageDraw.Draw(img)'],els.map(function(e){return '    '+e}),['    return img','','']);
+    render=fnl(pre.concat(frFB,['to_fb(draw_frame())']));
+    var liveFB=fnl(pre.concat(frFB,['REFRESH_SECONDS = '+rf.every+'   # how often to redraw','while True:','    to_fb(draw_frame())','    time.sleep(REFRESH_SECONDS)']));
+    out=[{id:'setup',label:'Setup',file:'setup.sh',code:setup,note:'Run once on the Pi. Installs the display overlay, adds it to config.txt and installs the helpers. Reboot after it runs.'},
+      {id:'render',label:'Render layout',file:'render.py',code:render,note:'Draws the layout once into the framebuffer /dev/fb1. Run it after the reboot, when the overlay has loaded. It may need sudo if your user is not in the video group.'},
+      {id:'live',label:'Live loop',file:'live.py',code:liveFB,note:'Redraws every '+rf.every+' s, so wired values stay current. Change REFRESH_SECONDS at the top.'}];
   }else{
+    cInit=['LCD = LCD_1in44.LCD()','LCD.LCD_Init(LCD_1in44.SCAN_DIR_DFT)','WIDTH, HEIGHT = LCD.width, LCD.height'];cShow=['    LCD.LCD_ShowImage(img, 0, 0)'];cMono=false;
     pre=['import sys',"sys.path.append('1.44inch-LCD-HAT-Code/RaspberryPi/python')   # adjust to where you unpacked the demo",'import LCD_1in44','from PIL import Image, ImageDraw, ImageFont',''];
     setup=fnl(['sudo raspi-config nonint do_spi 0','sudo apt update'].concat(apt,['sudo apt install -y fonts-dejavu-core','sudo apt install -y p7zip-full','wget https://files.waveshare.com/upload/f/fa/1.44inch-LCD-HAT-Code.7z','7z x 1.44inch-LCD-HAT-Code.7z']));
     init=fnl(pre.slice(0,3).concat(['','LCD = LCD_1in44.LCD()','LCD.LCD_Init(LCD_1in44.SCAN_DIR_DFT)','LCD.LCD_Clear()']));
@@ -2808,21 +3186,21 @@ function genScripts(n){
       {id:'live',label:'Live loop',file:'live.py',code:liveL,note:'Redraws every '+rf.every+' s, so wired values stay current. Change REFRESH_SECONDS at the top.'}];
   }
   if(d.custom&&d.custom.on){
-    var fontL=T==='eink'?['def font(size):',"    return ImageFont.truetype(PIC + '/Font.ttc', size)"]:['def font(size):',"    return ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', size)"];
+    var fontL=isEink(T)?['def font(size):',"    return ImageFont.truetype(PIC + '/Font.ttc', size)"]:['def font(size):',"    return ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', size)"];
     var dev;
-    if(T==='eink')dev=['epd = epd2in13_V4.EPD()','epd.init()','WIDTH, HEIGHT = epd.height, epd.width   # 250 x 122, landscape','BG, FG = '+(d.invert?'0, 255':'255, 0')+'      # background and drawing colors','_based = False','',
+    if(isEink(T)){
+      var E2=epdOf(T),k2=E2.part?8:4,fb2=E2.base||E2.full;
+      var body2=ind(E2.init,k2).concat(ind(fl(fb2,'img'),k2),ind(E2.pinit,k2),[new Array(k2+1).join(' ')+'_based = True']);
+      dev=['epd = '+E2.mod+'.EPD()'].concat(E2.init,['WIDTH, HEIGHT = '+E2.sz+'   # '+c.w+' x '+c.h+', landscape','BG, FG = '+(d.invert?'0, 255':'255, 0')+'      # background and drawing colors','_based = False','',
       'def new_image():','    """A blank picture the size of the panel, and a pen to draw on it."""',"    img = Image.new('1', (WIDTH, HEIGHT), BG)",'    return img, ImageDraw.Draw(img)','',
-      'def show(img, partial=False):','    """Put a picture on the panel. partial=True is quick but ghosts a little. Use a full show every so often."""','    global _based',
-      '    if partial and _based:','        epd.displayPartial(epd.getbuffer(img))','    else:','        epd.init()','        epd.displayPartBaseImage(epd.getbuffer(img))   # full refresh, and resets the partial baseline','        _based = True','',
-      'def sleep_panel():','    """Put the panel to sleep when you are done (it keeps the picture)."""','    epd.init()','    epd.sleep()'];
-    else if(T==='p_ssd1306')dev=['serial = i2c(port=1, address=0x3C)   # use 0x3D if your module does','device = ssd1306(serial)','WIDTH, HEIGHT = device.width, device.height','BG, FG = '+(d.invert?'0, 255':'255, 0')+'      # background and drawing colors','',
-      'def new_image():','    """A blank picture the size of the screen, and a pen to draw on it."""',"    img = Image.new('1', (WIDTH, HEIGHT), BG)",'    return img, ImageDraw.Draw(img)','',
-      'def show(img, partial=False):','    """Put a picture on the screen. partial is ignored here."""','    device.display(img)'];
-    else{
+      'def show(img, partial=False):','    """Put a picture on the panel. partial=True is quick but ghosts a little. Use a full show every so often."""','    global _based'],
+      E2.part?['    if partial and _based:'].concat(ind(fl(E2.part,'img'),8),['    else:']):[],body2,['',
+      'def sleep_panel():','    """Put the panel to sleep when you are done (it keeps the picture)."""'],ind(E2.init,4),['    epd.sleep()']);
+    }else{
       var lum=(function(){var m=/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(d.bg||'#000000');return m?(0.3*parseInt(m[1],16)+0.59*parseInt(m[2],16)+0.11*parseInt(m[3],16)):0})();
-      dev=['LCD = LCD_1in44.LCD()','LCD.LCD_Init(LCD_1in44.SCAN_DIR_DFT)','WIDTH, HEIGHT = LCD.width, LCD.height','BG = '+pyStr(d.bg||'#000000'),'FG = '+pyStr(lum>140?'#000000':'#FFFFFF')+'   # drawing color','',
-      'def new_image():','    """A blank picture the size of the screen, and a pen to draw on it."""',"    img = Image.new('RGB', (WIDTH, HEIGHT), BG)",'    return img, ImageDraw.Draw(img)','',
-      'def show(img, partial=False):','    """Put a picture on the screen. partial is ignored here."""','    LCD.LCD_ShowImage(img, 0, 0)'];
+      dev=cInit.concat(cMono?['BG, FG = '+(d.invert?'0, 255':'255, 0')+'      # background and drawing colors']:['BG = '+pyStr(d.bg||'#000000'),'FG = '+pyStr(lum>140?'#000000':'#FFFFFF')+'   # drawing color'],['',
+      'def new_image():','    """A blank picture the size of the screen, and a pen to draw on it."""',"    img = Image.new('"+(cMono?'1':'RGB')+"', (WIDTH, HEIGHT), BG)",'    return img, ImageDraw.Draw(img)','',
+      'def show(img, partial=False):','    """Put a picture on the screen. partial is ignored here."""'],cShow);
     }
     var prel=pre.indexOf('import time')>=0?pre:pre.concat(['import time','']);
     var ins=['def read_inputs():','    """Returns the values wired into this screen block: {\'in1\': ..., \'in2\': ...}. Wired sensors are read live."""']
@@ -2948,7 +3326,7 @@ function openDisplay(n){
       var r=rfOf(n);rfBox.innerHTML='';
       var ev=h('input',{type:'number',min:'0.1',step:'any',value:String(r.every)});ev.addEventListener('change',function(){var v=parseFloat(ev.value);if(v>0)rset('every',v)});
       rfBox.appendChild(h('label',{text:'Redraw every (seconds)'}));rfBox.appendChild(ev);
-      if(n.type==='eink'){
+      if(isEink(n.type)){
         var ms=h('select');[['partial','Partial (quick)'],['full','Full (slow, flashes)']].forEach(function(o){ms.appendChild(h('option',{value:o[0],text:o[1]}))});ms.value=r.mode;ms.addEventListener('change',function(){rset('mode',ms.value)});
         rfBox.appendChild(h('label',{text:'Refresh type'}));rfBox.appendChild(ms);
         var fe=h('input',{type:'number',min:'0',step:'1',value:String(r.fullEvery)});fe.addEventListener('change',function(){var v=parseInt(fe.value,10);if(v>=0)rset('fullEvery',v)});
@@ -2970,7 +3348,7 @@ function openDisplay(n){
     scrBox.appendChild(h('button',{class:'btn',style:'margin-top:8px',text:'Open in console',onclick:function(){openScreenConsole(n)}}));
     if(d.sel>=d.els.length)d.sel=0;
     refreshChips();renderEd();paint();renderScripts();
-    if(n.type==='eink')b.appendChild(h('div',{class:'note',text:'E-ink notes: a full refresh takes a couple of seconds and flashes. Use partial refresh for small changes, do a full refresh now and then to clear ghosting, and do not leave the panel powered between updates.'}));
+    if(isEink(n.type))b.appendChild(h('div',{class:'note',text:'E-ink notes: a full refresh takes a couple of seconds and flashes. Use partial refresh for small changes, do a full refresh now and then to clear ghosting, and do not leave the panel powered between updates.'}));
   },function(){paint();renderScripts()});
 }
 
@@ -3139,11 +3517,12 @@ function libOn(n,l){
   return !!l.def;
 }
 function setupLines(items){
-  var ifs=[],apt=[],pip=[],git=[],man=[],out=[],blinka=false,pi5=false,esp=false,any=false;
+  var ifs=[],apt=[],pip=[],git=[],man=[],cfg=[],out=[],blinka=false,pi5=false,esp=false,any=false;
   function add(a,v){if(v&&a.indexOf(v)<0)a.push(v)}
   items.forEach(function(it){
-    if(it.host==='esp'){esp=true;return}
-    any=true;if(it.host==='pi5')pi5=true;
+    if(!HOSTS[it.host]||!HOSTS[it.host].pi){esp=true;return}
+    any=true;if(HOSTS[it.host].gpiod)pi5=true;
+    (it.A.cfg||[]).forEach(function(c){add(cfg,c)});
     (it.A.ifaces||[]).forEach(function(f){(IFACE_CMD[f]||[]).forEach(function(c){add(ifs,c)})});
     (it.A.libs||[]).forEach(function(l){
       if(!it.on(l))return;
@@ -3154,7 +3533,7 @@ function setupLines(items){
       else if(l.pm==='manual')(l.lines||[]).forEach(function(x){add(man,x)});
     });
   });
-  if(esp&&!any)return ['# ESP32-S3 add-ons are wired to free GPIO and run as firmware. Nothing to install on a Pi.'];
+  if(esp&&!any)return ['# Add-ons on this board are wired to free GPIO and run as firmware. Nothing to install on a Pi.'];
   if(pi5&&blinka){add(apt,'python3-rpi-lgpio')}
   ifs.forEach(function(c){out.push(c)});
   if(apt.length){out.push('sudo apt update');out.push('sudo apt install -y '+apt.join(' '))}
@@ -3166,7 +3545,9 @@ function setupLines(items){
   }
   git.forEach(function(u){out.push('git clone '+u)});
   man.forEach(function(x){out.push(x)});
-  if(esp)out.push('# ESP32-S3 add-ons are wired to free GPIO and need firmware libraries, not Pi packages.');
+  cfg.forEach(function(c){out.push("grep -qxF '"+c+"' /boot/firmware/config.txt || echo '"+c+"' | sudo tee -a /boot/firmware/config.txt")});
+  if(cfg.length)out.push('# Reboot once so the new config.txt lines take effect: sudo reboot');
+  if(esp)out.push('# Add-ons on this board are wired to free GPIO and need firmware libraries, not Pi packages.');
   if(!out.length)out.push('# Nothing to install for the current choices.');
   return out;
 }
@@ -3403,7 +3784,7 @@ function addIconToScreen(sc,name){
 /* ---------- run the whole project ---------- */
 function screenLoop(n){
   var g=genScripts(n);if(!g.list)return null;
-  var id=(n.props.dsp.custom&&n.props.dsp.custom.on)?'custom':(n.type==='eink'?'part':'live'),s=g.list.filter(function(x){return x.id===id})[0];
+  var id=(n.props.dsp.custom&&n.props.dsp.custom.on)?'custom':(isEink(n.type)?'part':'live'),s=g.list.filter(function(x){return x.id===id})[0];
   return s?{file:'screen-'+ADDONS[n.type].short.toLowerCase().replace(/[^a-z0-9]/g,'')+'-'+n.id+'.py',code:s.code,label:ADDONS[n.type].short+' screen'}:null;
 }
 function projectFiles(hn){
@@ -3534,7 +3915,7 @@ function conSections(){
       if(!g.list){secs.push({name:pre+nm,tabs:[],msg:g.msg});return}
       var loop=screenLoop(p);
       secs.push({name:pre+nm,tabs:g.list.map(function(s){
-        var isLoop=loop&&(s.id==='custom'||(p.type==='eink'&&s.id==='part')||(p.type!=='eink'&&s.id==='live'));
+        var isLoop=loop&&(s.id==='custom'||(isEink(p.type)&&s.id==='part')||(!isEink(p.type)&&s.id==='live'));
         return{id:'s'+p.id+':'+s.id,label:s.label,dl:isLoop?loop.file:ADDONS[p.type].short.toLowerCase().replace(/[^a-z0-9]/g,'')+'-'+p.id+'-'+s.file,code:s.code,note:s.note};
       })});
     });
@@ -3615,7 +3996,7 @@ function runSig(){
   var hn=runHost();if(!hn)return 'none';
   var ps=runParts(hn).map(function(p){return p.id+(ADDONS[p.type].layout&&p.props.dsp&&p.props.dsp.custom&&p.props.dsp.custom.on?'c':'')});
   var ac=P.nodes.filter(function(n){return n.type==='action'&&n.props.host===hn.id}).map(function(n){return n.id});
-  return P.id+'|'+hn.id+'|'+ps.join(',')+'|'+ac.join(',')+'|'+P.nodes.filter(function(n){return n.type==='ps'}).length;
+  return P.id+'|'+hn.id+'|'+ps.join(',')+'|'+ac.join(',')+'|'+P.nodes.filter(function(n){return isPs(n.type)}).length;
 }
 function inputsFor(n){var o={};strVals(n).forEach(function(v,j){o['in'+(j+1)]=v===undefined?null:v});return JSON.stringify(o)}
 
@@ -3700,17 +4081,17 @@ function buildRun(){
     var c=dcfg(sc),cu=sc.props.dsp&&sc.props.dsp.custom&&sc.props.dsp.custom.on;
     var cv=h('canvas',{width:c.w,height:c.h,style:'width:'+Math.min(c.w*2,420)+'px;max-width:100%'}),stat=h('div',{class:'rs',text:'Waiting'});
     var st={n:sc,cv:cv,ctx:cv.getContext('2d'),stat:stat,upd:0,skipped:0,next:0,last:null,custom:!!cu,title:ADDONS[sc.type].short,engBox:null,eng:null};
-    var card=h('div',{class:'rscr'},[h('div',{class:'rh'},[h('b',{text:ADDONS[sc.type].title}),h('span',{class:'note',style:'margin:0',text:cu?'custom program':(sc.type==='eink'?'e-ink':'screen')})]),runDevice(sc,cv,c),stat]);
+    var card=h('div',{class:'rscr'},[h('div',{class:'rh'},[h('b',{text:ADDONS[sc.type].title}),h('span',{class:'note',style:'margin:0',text:cu?'custom program':(isEink(sc.type)?'e-ink':'screen')})]),runDevice(sc,cv,c),stat]);
     if(cu){st.engBox=h('div',{style:'margin-top:8px'});card.appendChild(st.engBox);engUi(st)}
     SIM.scr.push(st);R.appendChild(card);if(cu&&SIM.wantEng)engLoad(st);return;
   });
   /* inputs */
   var any=false,inp=h('div');
-  parts.filter(function(p){return p.type!=='ps'&&!ADDONS[p.type].layout&&(ADDONS[p.type].outs||[]).length}).forEach(function(p){
+  parts.filter(function(p){return !isPs(p.type)&&!ADDONS[p.type].layout&&(ADDONS[p.type].outs||[]).length}).forEach(function(p){
     any=true;inp.appendChild(h('div',{class:'lbl',style:'margin:10px 0 4px',text:ADDONS[p.type].title+' (simulated reading)'}));
     ADDONS[p.type].outs.forEach(function(o){inp.appendChild(simInput(p,o))});
   });
-  P.nodes.filter(function(n){return n.type==='ps'&&n.props.mount===hn.id}).forEach(function(p){
+  P.nodes.filter(function(n){return isPs(n.type)&&n.props.mount===hn.id}).forEach(function(p){
     any=true;inp.appendChild(h('div',{class:'lbl',style:'margin:10px 0 4px',text:'PiSugar battery'}));
     var r=h('input',{type:'range',min:'0',max:'100',step:'1',value:String(p.props.bat),style:'width:100%'});r.addEventListener('input',function(){p.props.bat=parseInt(r.value,10);touch(p)});
     var ck=h('input',{type:'checkbox'});ck.checked=!!p.props.chg;ck.addEventListener('input',function(){p.props.chg=ck.checked;touch(p)});
@@ -3743,9 +4124,9 @@ function runKeyBtn(l,k,label){
 }
 /* a picture of the real board: the screen in the middle, buttons where the hardware has them */
 function runDevice(sc,cv,c){
-  var box=h('div',{class:'dev '+sc.type});
+  var box=h('div',{class:'dev '+sc.type+(isEink(sc.type)?' eink':'')});
   var wrap=h('div',{class:'dscr',style:'max-width:'+Math.min(c.w*2,420)+'px'},[cv]);cv.style.width='100%';
-  if(sc.type==='lcd'){
+  if(hasPad(sc.type)){
     var joy=h('div',{class:'joy'});
     [['up','\u25B2','1/2'],['left','\u25C0','2/1'],['press','\u25CF','2/2'],['right','\u25B6','2/3'],['down','\u25BC','3/2']].forEach(function(d){
       var b=runKeyBtn(sc,d[0],d[1]);b.style.gridArea=d[2];joy.appendChild(b)});
@@ -3761,13 +4142,13 @@ function runDraw(st,first){
   paintDisplay(ctx,n,[],null);
   var sig=st.cv.toDataURL();
   if(!first&&st.last===sig){
-    if(rf.skip&&n.type==='eink'){st.skipped++;st.stat.textContent='Unchanged, skipped ('+st.skipped+' skipped so far)';return}
-    if(n.type!=='eink'){st.upd++;st.stat.textContent='Redraw #'+st.upd+' (nothing changed)';return}
+    if(rf.skip&&isEink(n.type)){st.skipped++;st.stat.textContent='Unchanged, skipped ('+st.skipped+' skipped so far)';return}
+    if(!isEink(n.type)){st.upd++;st.stat.textContent='Redraw #'+st.upd+' (nothing changed)';return}
   }
   st.last=sig;st.upd++;
   var mono=dcfg(n).mono,inv=mono&&invOf(n),kind='redraw';
-  if(n.type==='eink'){kind=(rf.mode==='full'||st.upd===1||(rf.fullEvery&&st.upd%rf.fullEvery===0))?'full':'partial'}
-  var txt=(n.type==='eink'?(kind==='full'?'Full refresh':'Partial refresh'):'Redraw')+' #'+st.upd+(mono?(inv?', inverted':', normal'):'');
+  if(isEink(n.type)){kind=(rf.mode==='full'||st.upd===1||(rf.fullEvery&&st.upd%rf.fullEvery===0))?'full':'partial'}
+  var txt=(isEink(n.type)?(kind==='full'?'Full refresh':'Partial refresh'):'Redraw')+' #'+st.upd+(mono?(inv?', inverted':', normal'):'');
   st.stat.textContent=txt;
   if(kind==='full'){st.cv.classList.remove('flash');void st.cv.offsetWidth;st.cv.classList.add('flash')}
   if(!first)runLog(st.title+': '+txt);
@@ -3845,13 +4226,14 @@ document.addEventListener('keydown',function(e){
 window.addEventListener('resize',function(){applyCon();drawMini()});
 setInterval(function(){if(P&&P.nodes.some(function(n){return n.type==='timer'&&n.props.run}))refresh()},300);
 
+catalogFinish();
 applyCon();
 load();
 P=S.projects.filter(function(p){return p.id===S.cur})[0]||S.projects[0];S.cur=P.id;
 projList();renderAll();commitNow();
 setTimeout(function(){if(S.projects.length&&P.name==='Welcome'&&!localStorage.getItem(KEY+'.fit')){fitView();try{localStorage.setItem(KEY+'.fit','1')}catch(e){}}},50);
 
-window.__sandbox={get P(){return P},ADDONS:ADDONS,setupLines:setupLines,openPart:openPart,openCatalog:openCatalog,openProjectSetup:openProjectSetup,openControls:openControls,openIdeas:openIdeas,libFor:libFor,genPhotoLib:genPhotoLib,openConsole:openConsole,renderConsole:renderConsole,conSections:conSections,CON:CON,openRun:openRun,openStarters:openStarters,projectFiles:projectFiles,startStarter:startStarter,STARTERS:STARTERS,claimsOf:claimsOf,ICON_DEFS:ICON_DEFS,ideas:ideas,genControls:genControls,actionOptions:actionOptions,libOn:libOn,TY:TY,refresh:refresh,fit:fit,genScripts:genScripts,cache:function(){return cache},buildGuidePdf:buildGuidePdf,downloadGuidePdf:downloadGuidePdf,simFire:simFire,bbPlan:bbPlan,bbText:bbText,bbScene:bbScene,sceneSvg:sceneSvg,openBoard:openBoard,openKey:openKey,bbFor:bbFor,CONN:CONN,stripSpec:stripSpec,MOCKSHOT:MOCKSHOT,addNode:addNode,select:select,setProject:setProject,newProject:newProject};
+window.__sandbox={HOSTS:HOSTS,epdOf:epdOf,isEink:isEink,get P(){return P},ADDONS:ADDONS,setupLines:setupLines,openPart:openPart,openCatalog:openCatalog,openProjectSetup:openProjectSetup,openControls:openControls,openIdeas:openIdeas,libFor:libFor,genPhotoLib:genPhotoLib,openConsole:openConsole,renderConsole:renderConsole,conSections:conSections,CON:CON,openRun:openRun,openStarters:openStarters,projectFiles:projectFiles,startStarter:startStarter,STARTERS:STARTERS,claimsOf:claimsOf,ICON_DEFS:ICON_DEFS,ideas:ideas,genControls:genControls,actionOptions:actionOptions,libOn:libOn,TY:TY,refresh:refresh,fit:fit,genScripts:genScripts,cache:function(){return cache},buildGuidePdf:buildGuidePdf,downloadGuidePdf:downloadGuidePdf,simFire:simFire,bbPlan:bbPlan,bbText:bbText,bbScene:bbScene,sceneSvg:sceneSvg,openBoard:openBoard,openKey:openKey,bbFor:bbFor,CONN:CONN,stripSpec:stripSpec,MOCKSHOT:MOCKSHOT,addNode:addNode,select:select,setProject:setProject,newProject:newProject};
 })();
 </script>
 </body>
