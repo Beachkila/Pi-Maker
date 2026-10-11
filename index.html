@@ -245,6 +245,22 @@ body.cdrag{user-select:none;cursor:col-resize}
 @keyframes flashinv{0%{filter:invert(1)}60%{filter:invert(0)}}
 #runLog{font-family:var(--mono);font-size:11px;line-height:1.45;white-space:pre-wrap;border:1px solid var(--line);padding:8px;height:170px;overflow:auto;background:var(--bg);margin:0;user-select:text;-webkit-user-select:text}
 .rkeys{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.dev{display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border-radius:12px;background:#17191c;border:1px solid #000}
+.dev .dscr{flex:1 1 auto;min-width:0}
+.dev canvas{border:2px solid #000;border-radius:2px;width:100%}
+.dev.eink{background:#e4e2db;border-color:#bdbab0}
+.dev.eink canvas{border-color:#8d8a80}
+.dev canvas.poff{filter:brightness(.12)}
+.dcol{display:flex;flex-direction:column;align-items:center;gap:6px;flex:0 0 auto}
+.dcap{font-family:var(--mono);font-size:8px;letter-spacing:.12em;color:#8b9097}
+.joy{display:grid;grid-template-columns:repeat(3,28px);grid-template-rows:repeat(3,28px);gap:2px}
+.dbtn{border:1px solid #05060a;background:#2c3036;color:#d7dae0;border-radius:50%;font:11px var(--mono);cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;display:flex;align-items:center;justify-content:center;padding:0;box-shadow:0 2px 0 #000}
+.dbtn:hover{background:#383d44}
+.dbtn.on{background:#d7dae0;color:#111;box-shadow:none;transform:translateY(2px)}
+.joy .dbtn{width:28px;height:28px}
+.keys{display:flex;flex-direction:column;justify-content:space-around;gap:12px;height:100%}
+.keys .dbtn{width:38px;height:38px;font-size:9px}
+.dev.off{opacity:.6}
 </style>
 </head>
 <body>
@@ -866,8 +882,13 @@ def('action',{cat:'logic',title:'Action',desc:'Does something on a part when tri
   ins:[{n:'trigger',t:'bool',d:false}],outs:[{n:'fired',t:'num'},{n:'ready',t:'bool'}],
   props:function(){return{host:null,target:'',arg:'',mode:'press'}},
   ev:function(n,i){
-    var t=!!i[0];
-    if(t&&!n.rt.prev){n.rt.fired=(n.rt.fired||0)+1;simFire(n);setTimeout(function(){refresh()},0)}
+    var t=!!i[0],m=n.props.mode||'press';
+    function go(){n.rt.fired=(n.rt.fired||0)+1;simFire(n);setTimeout(function(){refresh()},0)}
+    if(t&&!n.rt.prev){
+      if(m==='press')go();
+      else if(m==='hold'||m==='hold3'){n.rt.t0=simNow();n.rt.done=false;holdWait(n,m==='hold3'?3000:1000,go)}
+    }
+    if(!t&&n.rt.prev){if(m==='release')go();n.rt.t0=null}
     n.rt.prev=t;
     return[n.rt.fired||0,!!actionTarget(n)];
   },
@@ -1247,12 +1268,44 @@ var MOCK_PY=["\"\"\"Mock camera and buttons, so this project can be tested on a 
 var MOCKSHOT={};
 function genMockCamera(){return MOCK_PY}
 /* simulator: a Take photo action on a camera adds a mock frame to the library (or counts it) */
+function holdWait(n,need,go){
+  var t0=n.rt.t0;
+  function chk(){
+    if(!n.rt.prev||n.rt.t0!==t0||n.rt.done)return;
+    var left=need-(simNow()-t0);
+    if(left<=0){n.rt.done=true;go();return}
+    setTimeout(chk,Math.max(30,Math.min(300,left/Math.max(SIM.k,0.05))));
+  }
+  setTimeout(chk,30);
+}
 function simFire(n){
-  var tg=actionTarget(n);if(!tg||tg.a.id!=='photo'||!/^p_(cam|hq|usbcam)/.test(tg.own.type))return;
+  var tg0=actionTarget(n);if(tg0&&tg0.a.id!=='photo')return simOther(n,tg0);
+  var tg=tg0;if(!tg||!/^p_(cam|hq|usbcam)/.test(tg.own.type))return;
   var hn=NM[n.props.host];if(!hn)return;
   MOCKSHOT[hn.id]=(MOCKSHOT[hn.id]||0)+1;n.rt.mock=MOCKSHOT[hn.id];
   var lib=libFor(hn);
   if(lib){var m=lib.props.sim=lib.props.sim||{count:0,index:0};m.count=(Number(m.count)||0)+1;m.index=m.count}
+}
+function simOther(n,tg){
+  var id=tg.a.id,own=tg.own,hn=NM[n.props.host];if(!hn)return;
+  var lib=libFor(hn),m=lib&&(lib.props.sim=lib.props.sim||{count:0,index:0});
+  if(m){m.count=Number(m.count)||0;m.index=Number(m.index)||0}
+  if(own.type==='photolib'&&m){
+    if(id==='next'&&m.count)m.index=m.index%m.count+1;
+    else if(id==='prev'&&m.count)m.index=(m.index-2+m.count)%m.count+1;
+    else if(id==='newest')m.index=m.count;
+    else if(id==='delete'&&m.count){m.count--;m.index=Math.min(m.index,m.count)}
+    else if(id==='keep'&&m.count&&SIM.on)runLog('Photo #'+m.index+' copied to favorites');
+    return;
+  }
+  if(id==='video'){n.rt.rec=!n.rt.rec;if(SIM.on)runLog(n.rt.rec?'Camera: recording started':'Camera: recording stopped, video saved');return}
+  if(id==='shutdown'){if(SIM.on)simPowerOff();return}
+  if(id==='show'&&SIM.on)runLog(ADDONS[own.type].short+': showing the last photo');
+}
+function simPowerOff(){
+  SIM.off=true;runLog('Shutting down. The unit is now off');
+  SIM.scr.forEach(function(st){st.cv.classList.add('poff');st.stat.textContent=st.n.type==='eink'?'Powered off (the image stays on e-ink)':'Powered off'});
+  var pb=$('#runPower');if(pb)pb.hidden=false;
 }
 /* ---------- connection types: one color, shape and label each ---------- */
 var CONN={
@@ -3633,7 +3686,8 @@ function buildRun(){
   var sp=h('select',{class:'sm','aria-label':'Speed'});[[1,'1x'],[2,'2x'],[5,'5x'],[10,'10x'],[30,'30x'],[60,'60x']].forEach(function(o){sp.appendChild(h('option',{value:o[0],text:o[1]}))});sp.value=String(SIM.speed);
   sp.addEventListener('change',function(){SIM.speed=Number(sp.value);if(!SIM.paused)simSetK(SIM.speed)});
   SIM.clk=h('span',{class:'rclk',text:'00:00'});
-  [pb,rb,sp,SIM.clk].forEach(function(x){bar.appendChild(x)});R.appendChild(bar);
+  var pw=h('button',{class:'btn sm',id:'runPower',text:'Power on',hidden:true,onclick:runRestart});pw.hidden=!SIM.off;
+  [pb,rb,pw,sp,SIM.clk].forEach(function(x){bar.appendChild(x)});R.appendChild(bar);
   var hs=P.nodes.filter(isHost);
   if(hs.length>1){
     var hsel=h('select',{class:'sm',style:'margin-bottom:8px'});hs.forEach(function(x){hsel.appendChild(h('option',{value:x.id,text:HOSTS[x.type].title+' #'+x.id}))});hsel.value=String(hn.id);
@@ -3646,21 +3700,12 @@ function buildRun(){
     var c=dcfg(sc),cu=sc.props.dsp&&sc.props.dsp.custom&&sc.props.dsp.custom.on;
     var cv=h('canvas',{width:c.w,height:c.h,style:'width:'+Math.min(c.w*2,420)+'px;max-width:100%'}),stat=h('div',{class:'rs',text:'Waiting'});
     var st={n:sc,cv:cv,ctx:cv.getContext('2d'),stat:stat,upd:0,skipped:0,next:0,last:null,custom:!!cu,title:ADDONS[sc.type].short,engBox:null,eng:null};
-    var card=h('div',{class:'rscr'},[h('div',{class:'rh'},[h('b',{text:ADDONS[sc.type].title}),h('span',{class:'note',style:'margin:0',text:cu?'custom program':(sc.type==='eink'?'e-ink':'screen')})]),cv,stat]);
+    var card=h('div',{class:'rscr'},[h('div',{class:'rh'},[h('b',{text:ADDONS[sc.type].title}),h('span',{class:'note',style:'margin:0',text:cu?'custom program':(sc.type==='eink'?'e-ink':'screen')})]),runDevice(sc,cv,c),stat]);
     if(cu){st.engBox=h('div',{style:'margin-top:8px'});card.appendChild(st.engBox);engUi(st)}
     SIM.scr.push(st);R.appendChild(card);if(cu&&SIM.wantEng)engLoad(st);return;
   });
   /* inputs */
   var any=false,inp=h('div');
-  parts.filter(function(p){return p.type==='lcd'}).forEach(function(l){
-    any=true;inp.appendChild(h('div',{class:'lbl',style:'margin:6px 0',text:'LCD keys and joystick (hold)'}));
-    var g=h('div',{class:'rkeys'});
-    ['up','down','left','right','press','key1','key2','key3'].forEach(function(k){
-      var bt=h('button',{class:'btn sm',text:k});
-      function on(){l.rt.k=l.rt.k||{};l.rt.k[k]=true;refresh();runLog('LCD '+k+' pressed')}function off(){if(l.rt.k&&l.rt.k[k]){l.rt.k[k]=false;refresh()}}
-      bt.addEventListener('pointerdown',on);bt.addEventListener('pointerup',off);bt.addEventListener('pointerleave',off);bt.addEventListener('pointercancel',off);g.appendChild(bt);
-    });inp.appendChild(g);
-  });
   parts.filter(function(p){return p.type!=='ps'&&!ADDONS[p.type].layout&&(ADDONS[p.type].outs||[]).length}).forEach(function(p){
     any=true;inp.appendChild(h('div',{class:'lbl',style:'margin:10px 0 4px',text:ADDONS[p.type].title+' (simulated reading)'}));
     ADDONS[p.type].outs.forEach(function(o){inp.appendChild(simInput(p,o))});
@@ -3688,6 +3733,29 @@ function buildRun(){
   SIM.acts={};acts.forEach(function(a){SIM.acts[a.id]=a.rt.fired||0});
   refresh();SIM.scr.forEach(function(st){if(!st.custom)runDraw(st,true)});
 }
+function runKeyBtn(l,k,label){
+  var bt=h('button',{class:'dbtn',type:'button','aria-label':k,title:k,text:label});
+  function on(e){if(SIM.off||(l.rt.k&&l.rt.k[k]))return;l.rt.k=l.rt.k||{};l.rt.k[k]=true;bt.classList.add('on');refresh();runLog(ADDONS[l.type].short+' '+k+' pressed')}
+  function off(){bt.classList.remove('on');if(l.rt.k&&l.rt.k[k]){l.rt.k[k]=false;refresh();runLog(ADDONS[l.type].short+' '+k+' released')}}
+  bt.addEventListener('pointerdown',on);['pointerup','pointerleave','pointercancel'].forEach(function(ev){bt.addEventListener(ev,off)});
+  bt.addEventListener('contextmenu',function(e){e.preventDefault()});
+  return bt;
+}
+/* a picture of the real board: the screen in the middle, buttons where the hardware has them */
+function runDevice(sc,cv,c){
+  var box=h('div',{class:'dev '+sc.type});
+  var wrap=h('div',{class:'dscr',style:'max-width:'+Math.min(c.w*2,420)+'px'},[cv]);cv.style.width='100%';
+  if(sc.type==='lcd'){
+    var joy=h('div',{class:'joy'});
+    [['up','\u25B2','1/2'],['left','\u25C0','2/1'],['press','\u25CF','2/2'],['right','\u25B6','2/3'],['down','\u25BC','3/2']].forEach(function(d){
+      var b=runKeyBtn(sc,d[0],d[1]);b.style.gridArea=d[2];joy.appendChild(b)});
+    var keys=h('div',{class:'keys'});['key1','key2','key3'].forEach(function(k,i){keys.appendChild(runKeyBtn(sc,k,'KEY'+(i+1)))});
+    box.appendChild(h('div',{class:'dcol'},[joy,h('div',{class:'dcap',text:'JOYSTICK'})]));
+    box.appendChild(wrap);
+    box.appendChild(h('div',{class:'dcol',style:'align-self:stretch'},[keys,h('div',{class:'dcap',text:'KEYS'})]));
+  }else box.appendChild(wrap);
+  return box;
+}
 function runDraw(st,first){
   var n=st.n,rf=rfOf(n),ctx=st.ctx;
   paintDisplay(ctx,n,[],null);
@@ -3710,6 +3778,7 @@ function runTick(){
   var sg=runSig();if(sg!==SIM.sig){buildRun();return}
   var t=simNow();
   refresh();
+  if(SIM.off){SIM.scr.forEach(function(st){st.next=t});return}
   SIM.scr.forEach(function(st){
     if(st.custom){var e=SIM.eng[st.n.id];if(e&&e.state==='running'){var j=inputsFor(st.n);if(j!==e.last){e.last=j;e.w.postMessage({type:'inputs',json:j})}}return}
     if(t>=st.next){st.next=t+rf1(st.n)*1000;runDraw(st,false)}
@@ -3724,8 +3793,8 @@ function runTick(){
 function rf1(n){return rfOf(n).every}
 function runRestart(){
   Object.keys(SIM.eng).forEach(function(id){var e=SIM.eng[id];if(e.w)try{e.w.terminate()}catch(x){}});SIM.eng={};
-  P.nodes.forEach(function(n){if(n.type==='timer'){n.rt.t0=null;n.rt.fz=0}if(n.type==='action'){n.rt.fired=0;n.rt.prev=false}});
-  SIM.log=[];SIM.start=simNow();buildRun();runLog('Unit restarted');
+  P.nodes.forEach(function(n){if(n.type==='timer'){n.rt.t0=null;n.rt.fz=0}if(n.type==='action'){n.rt.fired=0;n.rt.prev=false;n.rt.t0=null;n.rt.rec=false}});
+  SIM.off=false;SIM.log=[];SIM.start=simNow();buildRun();runLog('Unit restarted');
 }
 function startRun(){
   if(SIM.on)return;
