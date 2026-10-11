@@ -226,6 +226,25 @@ body.cdrag{user-select:none;cursor:col-resize}
   #hint{display:none}
   .ddi i{display:none}
 }
+
+/* run console */
+#conModes{display:flex;border-bottom:1px solid var(--rule)}
+.cm{flex:1;height:34px;border:0;border-right:1px solid var(--line);background:none;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--text);border-radius:0}
+.cm:last-child{border-right:0}
+.cm.on{background:var(--accent);color:var(--on-accent)}
+#conRun{display:none;flex:1;min-height:0;overflow:auto;padding:10px 12px}
+#conPanel.run #conBody{display:none}
+#conPanel.run #conRun{display:block}
+.rbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.rclk{font-family:var(--mono);font-size:12px;margin-left:auto}
+.rscr{border:1px solid var(--rule);padding:8px;margin-bottom:10px}
+.rscr .rh{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:6px}
+.rscr canvas{display:block;image-rendering:pixelated;border:1px solid var(--line);background:#fff}
+.rscr .rs{font-family:var(--mono);font-size:11px;color:var(--mut);margin-top:6px}
+.flash{animation:flashinv .35s}
+@keyframes flashinv{0%{filter:invert(1)}60%{filter:invert(0)}}
+#runLog{font-family:var(--mono);font-size:11px;line-height:1.45;white-space:pre-wrap;border:1px solid var(--line);padding:8px;height:170px;overflow:auto;background:var(--bg);margin:0;user-select:text;-webkit-user-select:text}
+.rkeys{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 </style>
 </head>
 <body>
@@ -251,7 +270,7 @@ body.cdrag{user-select:none;cursor:col-resize}
 <aside id="con">
   <div id="conGrip" title="Drag to resize"></div>
   <button id="conRail" aria-label="Open console" title="Open console"><b>&#9666;</b><span>Console</span></button>
-  <div id="conPanel"><div id="conHead"><b>Console</b><button id="conClose" class="btn sm" aria-label="Collapse console">Collapse &#9656;</button></div><div id="conBody"></div></div>
+  <div id="conPanel"><div id="conHead"><b>Console</b><button id="conClose" class="btn sm" aria-label="Collapse console">Collapse &#9656;</button></div><div id="conModes"><button class="cm on" data-m="scripts">Scripts</button><button class="cm" data-m="run">Run</button></div><div id="conBody"></div><div id="conRun"></div></div>
 </aside>
 <div id="selbar"></div>
 </div>
@@ -572,8 +591,8 @@ def('timer',{cat:'in',title:'Timer',desc:'Counts up every period.',w:170,ins:[],
   props:function(){return{period:1,run:true}},
   ev:function(n){
     if(!n.props.run)return[n.rt.fz||0];
-    if(!n.rt.t0)n.rt.t0=performance.now();
-    var c=Math.floor((performance.now()-n.rt.t0)/(Math.max(0.05,Number(n.props.period)||1)*1000));n.rt.fz=c;return[c];
+    if(!n.rt.t0)n.rt.t0=simNow();
+    var c=Math.floor((simNow()-n.rt.t0)/(Math.max(0.05,Number(n.props.period)||1)*1000));n.rt.fz=c;return[c];
   },
   body:function(n,b){
     b.appendChild(lab('Period (seconds)'));b.appendChild(inp(n,'period',{type:'number',step:'any'}));
@@ -1622,7 +1641,7 @@ function pdfBuild(title){
   }
   function rgb(c){c=c.replace('#','');return[parseInt(c.substr(0,2),16)/255,parseInt(c.substr(2,2),16)/255,parseInt(c.substr(4,2),16)/255].map(function(v){return f(v)}).join(' ')}
   function np(){D.cur={ops:[]};D.pages.push(D.cur);D.y=PH-M;return D.cur}
-  function T(font,size,x,y,str,color){D.cur.ops.push('BT '+rgb(color||'#222222')+' rg '+FN[font]+' '+size+' Tf '+f(x)+' '+f(y)+' Td ('+esc(str)+') Tj ET')}
+  function T(font,size,x,y,str,color,sp){D.cur.ops.push('BT '+rgb(color||'#222222')+' rg '+FN[font]+' '+size+' Tf '+(sp?f(sp)+' Tc ':'')+f(x)+' '+f(y)+' Td ('+esc(str)+') Tj '+(sp?'0 Tc ':'')+'ET')}
   function TR(font,size,x,y,str,color,deg){var a=deg*Math.PI/180,c=Math.cos(a),s=Math.sin(a);D.cur.ops.push('BT '+rgb(color||'#222222')+' rg '+FN[font]+' '+size+' Tf '+f(c)+' '+f(s)+' '+f(-s)+' '+f(c)+' '+f(x)+' '+f(y)+' Tm ('+esc(str)+') Tj ET')}
   function RECT(x,y,w,h,fill,stroke,lw){var o='';if(fill)o+=rgb(fill)+' rg ';if(stroke)o+=rgb(stroke)+' RG '+f(lw||1)+' w ';o+=f(x)+' '+f(y)+' '+f(w)+' '+f(h)+' re '+(fill&&stroke?'B':fill?'f':'S');D.cur.ops.push(o)}
   function wrap(str,maxW,size,bold){
@@ -1642,7 +1661,7 @@ function pdfBuild(title){
   api.page=function(){np()};
   api.title=function(str,reg){ /* new page with a heading, optionally listed in the contents */
     np();if(reg!==false)D.toc.push({t:str,pg:D.cur,lv:reg==='sub'?1:0});
-    RECT(M,D.y-30,CW,30,'#D85A30');T('bold',15,M+10,D.y-21,str,'#FFFFFF');D.y-=48;
+    RECT(M,D.y-30,CW,30,'#000000');T('bold',15,M+10,D.y-21,str,'#FFFFFF');D.y-=48;
   };
   api.h2=function(str){need(40);D.y-=10;T('bold',12.5,M,D.y-12,str,'#222222');D.y-=22};
   api.h3=function(str){need(30);D.y-=4;T('bold',10.5,M,D.y-10,str,'#444444');D.y-=17};
@@ -1654,7 +1673,7 @@ function pdfBuild(title){
   api.steps=function(list){
     list.forEach(function(s,i){
       var lines=wrap(s,CW-22,10,false);need(lines.length*14.5+4);
-      D.y-=14.5;T('bold',10,M+2,D.y,(i+1)+'.','#D85A30');T('reg',10,M+22,D.y,lines[0]);
+      D.y-=14.5;T('bold',10,M+2,D.y,(i+1)+'.','#000000');T('reg',10,M+22,D.y,lines[0]);
       for(var k=1;k<lines.length;k++){D.y-=14.5;T('reg',10,M+22,D.y,lines[k])}
       D.y-=3;
     });
@@ -1662,7 +1681,7 @@ function pdfBuild(title){
   api.bullets=function(list){
     list.forEach(function(s){
       var lines=wrap(s,CW-16,10,false);need(lines.length*14.5+2);
-      D.y-=14.5;T('bold',10,M+2,D.y,'-','#D85A30');T('reg',10,M+16,D.y,lines[0]);
+      D.y-=14.5;T('bold',10,M+2,D.y,'-','#000000');T('reg',10,M+16,D.y,lines[0]);
       for(var k=1;k<lines.length;k++){D.y-=14.5;T('reg',10,M+16,D.y,lines[k])}
       D.y-=2;
     });
@@ -1697,7 +1716,7 @@ function pdfBuild(title){
         if(D.y-lh<M+16){np();T('reg',8,M,D.y-8,head+' (continued)','#777777');D.y-=18}
         RECT(M,D.y-lh,CW,lh,sg.c?'#EDE9DF':'#F6F4EF');
         D.y-=lh*0.8;
-        if(sg.c)T('mono',size,M+5,D.y,'»','#D85A30');
+        if(sg.c)T('mono',size,M+5,D.y,'»','#000000');
         T('mono',size,M+7+(sg.c?cw*4:0),D.y,sg.t,'#1F1F1D');
         D.y-=lh*0.2;
       });
@@ -1749,8 +1768,10 @@ function pdfBuild(title){
     var N=D.pages.length;
     D.pages.forEach(function(pg,i){
       D.cur=pg;if(i===0)return;
-      T('reg',8,M,28,title+'  |  Setup guide','#888888');
-      var lab='Page '+(i+1)+' of '+N;T('reg',8,PW-M-lab.length*4.2,28,lab,'#888888');
+      RECT(M,40,CW,.6,'#000000');
+      T('bold',7.5,M,28,'STUDIO WETWARE','#000000',1.6);
+      T('reg',8,M+98,28,title+'  |  Setup guide','#666666');
+      var lab='Page '+(i+1)+' of '+N;T('reg',8,PW-M-lab.length*4.2,28,lab,'#666666');
     });
     var bodies=['<< /Type /Catalog /Pages 2 0 R >>','',
       '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
@@ -1975,7 +1996,7 @@ function buildGuidePdf(){
     sec.tabs.forEach(function(t){
       var name=sec.name+' / '+t.label;
       pdf.title(t.label==='main.py'||true?name:name,'sub');
-      pdf.p('Save as: '+t.dl.replace(/^pi\d+-/,''),{size:9.5,color:'#D85A30',gap:2});
+      pdf.p('Save as: '+t.dl.replace(/^pi\d+-/,''),{size:9.5,color:'#000000',gap:2});
       if(t.note)pdf.p(t.note,{size:9,color:'#555555',gap:6});
       pdf.code(String(t.code).split('\n'),name);
     });
@@ -1984,11 +2005,14 @@ function buildGuidePdf(){
   var info={host:hosts.map(function(x){return HOSTS[x.type].title}).join(', ')};
   var res=pdf.finish(function(fp,tocFn){
     var D=pdf.D;D.cur=fp;D.y=pdf.PH-pdf.M;
-    pdf.RECT(0,pdf.PH-170,pdf.PW,170,'#D85A30');
-    pdf.T('bold',26,pdf.M,pdf.PH-80,P.name,'#FFFFFF');
-    pdf.T('reg',13,pdf.M,pdf.PH-108,'Setup guide and code',  '#FFFFFF');
-    pdf.T('reg',10,pdf.M,pdf.PH-134,'For: '+info.host+'   |   Made with the Makers sandbox',  '#FFFFFF');
-    D.y=pdf.PH-200;
+    pdf.T('bold',13,pdf.M,pdf.PH-58,'STUDIO WETWARE','#000000',3.2);
+    pdf.T('reg',9,pdf.M,pdf.PH-73,'DEVELOP EVERYTHING','#555555',2.4);
+    pdf.RECT(pdf.M,pdf.PH-88,pdf.CW,3,'#000000');
+    pdf.T('bold',28,pdf.M,pdf.PH-132,P.name,'#000000');
+    pdf.T('reg',13,pdf.M,pdf.PH-154,'Setup guide and code','#000000');
+    pdf.T('reg',10,pdf.M,pdf.PH-172,'For: '+info.host+'   |   Made with Pi-Maker','#555555');
+    pdf.RECT(pdf.M,pdf.PH-188,pdf.CW,.6,'#000000');
+    D.y=pdf.PH-214;
     pdf.T('bold',12.5,pdf.M,D.y,'Contents','#222222');D.y-=18;
     var list=tocFn(),max=44;
     list.slice(0,max).forEach(function(e){
@@ -2961,6 +2985,7 @@ var MENUS=[
   ['Fit to screen',fitView],
   ['Connection key',openKey],
   ['Pin map',openPinMap],
+  ['Run console',function(){openConsole('run')}],
   '-',
   [CON.open?'Hide console':'Show console',function(){CON.open?closeConsole():openConsole()}]]}],
  ['Project',function(){return[
@@ -3422,7 +3447,9 @@ function openStarters(){
   });
 }
 /* ---------- console sidebar ---------- */
-var CON={open:false,tab:null,sig:'',w:460};
+var ENGINE_JS="var K=1,V=0,R=0,py=null,INPUTS='{}';\nfunction vnow(){return V+(performance.now()-R)*K}\nself.vnowMs=vnow;\nfunction wait(ms){return new Promise(function(r){setTimeout(r,ms)})}\nself.logLine=function(t){postMessage({type:'log',text:String(t)})};\nself.getInputs=function(){return INPUTS};\nself.emitFrame=function(kind,w,h,data,note){\n  var u=data&&data.toJs?data.toJs():data;\n  var a=new Uint8ClampedArray(u);\n  postMessage({type:'frame',kind:kind,w:w,h:h,note:String(note||''),buf:a.buffer},[a.buffer]);\n};\nself.simSleep=async function(s){\n  var target=vnow()+s*1000;\n  for(;;){\n    if(K===0){await wait(100);continue}\n    var rem=(target-vnow())/K;\n    if(rem<=0)return;\n    await wait(Math.min(rem,100));\n  }\n};\nonmessage=async function(e){\n  var m=e.data;\n  try{\n    if(m.type==='init'){\n      importScripts(m.base+'pyodide.js');\n      postMessage({type:'stage',text:'Starting Python'});\n      py=await loadPyodide({indexURL:m.base});\n      postMessage({type:'stage',text:'Loading the image library'});\n      await py.loadPackage('pillow');\n      py.runPython(m.pyrt);py.runPython('prepare()');\n      postMessage({type:'ready'});\n    }else if(m.type==='inputs'){INPUTS=m.json}\n    else if(m.type==='speed'){V=vnow();R=performance.now();K=m.k}\n    else if(m.type==='run'){\n      V=Date.now();R=performance.now();K=m.k;INPUTS=m.json;\n      py.globals.set('H_SRC',m.header);py.runPython('header(H_SRC)');py.runPython('inputs_override()');\n      py.globals.set('U_SRC',m.user);\n      var r=py.runPython('user_code(U_SRC)').toJs();\n      postMessage({type:'started',note:r[1]});\n      await py.runPythonAsync(r[0],{globals:py.globals.get('_G')});\n      postMessage({type:'done'});\n    }\n  }catch(err){postMessage({type:'error',text:String(err&&err.message||err),phase:m.type})}\n};\n";
+var PYRT="# Runtime for the Makers sandbox \"Run console\": stand-in drivers, virtual clock, async sleep.\nimport sys, types, ast, io, json, time as _time, traceback\nimport js\nfrom pyodide.ffi import to_js\n\n_strf = _time.strftime\n_lt = _time.localtime\n\ndef _vt():\n    return js.vnowMs() / 1000.0\n\ndef _install_clock():\n    _time.time = _vt\n    _time.monotonic = _vt\n    _time.perf_counter = _vt\n    _time.strftime = lambda fmt, t=None: _strf(fmt, t if t is not None else _lt(_vt()))\n    def _spin(s):                      # fallback for sleeps that could not be converted: blocks, but still correct\n        end = _vt() + max(0, s)\n        while _vt() < end:\n            pass\n    _time.sleep = _spin\n\ndef _emit(kind, img, note=''):\n    im = img.convert('RGBA')\n    js.emitFrame(kind, im.width, im.height, to_js(im.tobytes()), note)\n\ndef _log(*a, **k):\n    js.logLine(' '.join(str(x) for x in a))\n\nclass _Out(io.TextIOBase):\n    def __init__(self): self.buf = ''\n    def write(self, s):\n        self.buf += s\n        while '\\n' in self.buf:\n            line, self.buf = self.buf.split('\\n', 1)\n            js.logLine(line)\n        return len(s)\n\nclass _D:\n    \"\"\"Accepts anything, so code that imports libraries we do not simulate still starts.\"\"\"\n    def __init__(self, *a, **k): pass\n    def __call__(self, *a, **k): return _D()\n    def __getattr__(self, n):\n        if n.startswith('__'): raise AttributeError(n)\n        return _D()\n    def __iter__(self): return iter(())\n    def __bool__(self): return False\n    def __int__(self): return 0\n    def __float__(self): return 0.0\n    def __enter__(self): return self\n    def __exit__(self, *a): return False\n    def __str__(self): return '0'\n    def __lt__(self, o): return False\n    def __gt__(self, o): return False\n    def __add__(self, o): return self\n    __radd__ = __sub__ = __mul__ = __rmul__ = __truediv__ = __add__\n\ndef _mod(name, **attrs):\n    m = types.ModuleType(name)\n    for k, v in attrs.items(): setattr(m, k, v)\n    sys.modules[name] = m\n    return m\n\ndef _install_drivers():\n    # Waveshare e-paper 2.13 V4\n    class EPD:\n        height = 250\n        width = 122\n        def init(self): _log('[panel] init')\n        def Clear(self, c=0xFF): _log('[panel] clear')\n        def getbuffer(self, img): return img\n        def display(self, buf): _emit('full', buf, 'display')\n        def displayPartBaseImage(self, buf): _emit('full', buf, 'full refresh, new partial baseline')\n        def displayPartial(self, buf): _emit('partial', buf, 'partial refresh')\n        def sleep(self): _log('[panel] sleep')\n    we = _mod('waveshare_epd'); ee = _mod('waveshare_epd.epd2in13_V4', EPD=EPD); we.epd2in13_V4 = ee\n    # Waveshare 1.44 in LCD HAT\n    class LCD:\n        width = 128\n        height = 128\n        def LCD_Init(self, d=0): pass\n        def LCD_Clear(self): _emit('full', __import__('PIL.Image', fromlist=['Image']).new('RGB', (128, 128), 'black'), 'clear')\n        def LCD_ShowImage(self, img, x=0, y=0): _emit('show', img, 'show')\n    _mod('LCD_1in44', LCD=LCD, SCAN_DIR_DFT=0)\n    # luma.oled SSD1306\n    class _I2C:\n        def __init__(self, *a, **k): pass\n    class ssd1306:\n        def __init__(self, serial=None, **k): self.width = 128; self.height = 64\n        def display(self, img): _emit('show', img, 'show')\n    _mod('luma'); _mod('luma.core'); _mod('luma.core.interface'); _mod('luma.core.interface.serial', i2c=_I2C)\n    _mod('luma.oled'); _mod('luma.oled.device', ssd1306=ssd1306)\n\n_STUB_ROOTS = ('gpiozero', 'picamera2', 'board', 'busio', 'digitalio', 'RPi', 'spidev', 'smbus2', 'smbus', 'lgpio', 'gpiod',\n               'photolib', 'libcamera', 'adafruit_bme280', 'adafruit_bme680', 'adafruit_dht', 'serial', 'pigpio', 'cv2', 'numpy')\n\nclass _DummyModule(types.ModuleType):\n    def __getattr__(self, n):\n        if n.startswith('__'): raise AttributeError(n)\n        return _D()\n\nclass _Finder:\n    def find_spec(self, name, path=None, target=None):\n        root = name.split('.')[0]\n        if root in _STUB_ROOTS or root.startswith('adafruit_'):\n            import importlib.machinery\n            return importlib.machinery.ModuleSpec(name, self, is_package=True)\n    def create_module(self, spec):\n        m = _DummyModule(spec.name); m.__path__ = []; return m\n    def exec_module(self, module): pass\n\ndef _install_finder():\n    sys.meta_path.append(_Finder())\n\n# ---- turn time.sleep() into an awaitable, so the page stays responsive while the program waits ----\ndef _convert(src):\n    tree = ast.parse(src)\n    sleep_names = set()\n    for n in ast.walk(tree):\n        if isinstance(n, ast.ImportFrom) and n.module == 'time':\n            for a in n.names:\n                if a.name == 'sleep': sleep_names.add(a.asname or 'sleep')\n    def is_sleep(c):\n        f = c.func\n        return (isinstance(f, ast.Attribute) and f.attr == 'sleep' and isinstance(f.value, ast.Name) and f.value.id == 'time') or \\\n               (isinstance(f, ast.Name) and f.id in sleep_names)\n    funcs = {}\n    for n in ast.walk(tree):\n        if isinstance(n, ast.FunctionDef): funcs.setdefault(n.name, []).append(n)\n    asyncs = set()\n    def waits(fn):\n        for c in ast.walk(fn):\n            if isinstance(c, ast.Call):\n                if is_sleep(c): return True\n                f = c.func\n                if isinstance(f, ast.Name) and f.id in asyncs: return True\n                if isinstance(f, ast.Attribute) and f.attr in asyncs: return True\n        return False\n    changed = True\n    while changed:\n        changed = False\n        for name, lst in funcs.items():\n            if name not in asyncs and any(waits(f) for f in lst):\n                asyncs.add(name); changed = True\n    class Tx(ast.NodeTransformer):\n        def visit_FunctionDef(self, node):\n            self.generic_visit(node)\n            if node.name in asyncs:\n                new = ast.AsyncFunctionDef(name=node.name, args=node.args, body=node.body, decorator_list=node.decorator_list, returns=node.returns)\n                return ast.copy_location(new, node)\n            return node\n        def visit_Call(self, node):\n            self.generic_visit(node)\n            if is_sleep(node):\n                return ast.copy_location(ast.Await(value=ast.Call(func=ast.Name(id='_sim_sleep', ctx=ast.Load()), args=node.args, keywords=[])), node)\n            f = node.func\n            if (isinstance(f, ast.Name) and f.id in asyncs) or (isinstance(f, ast.Attribute) and f.attr in asyncs):\n                return ast.copy_location(ast.Await(value=node), node)\n            return node\n    tree = Tx().visit(tree)\n    ast.fix_missing_locations(tree)\n    return ast.unparse(tree), len(asyncs)\n\nasync def _sim_sleep(s):\n    await js.simSleep(float(s))\n\n_G = {'__name__': '__main__', '_sim_sleep': _sim_sleep}\n\ndef prepare():\n    sys.stdout = _Out(); sys.stderr = _Out()\n    _install_clock(); _install_drivers(); _install_finder()\n\ndef header(src):\n    exec(compile(src, 'generated header', 'exec'), _G)\n\ndef inputs_override():\n    def read_inputs():\n        return json.loads(js.getInputs())\n    _G['read_inputs'] = read_inputs\n    def font(size):                     # the Pi's font files are not here, so use Pillow's built-in one\n        from PIL import ImageFont\n        try:\n            return ImageFont.load_default(size=size)\n        except Exception:\n            return ImageFont.load_default()\n    _G['font'] = font\n\ndef user_code(src):\n    try:\n        conv, n = _convert(src)\n        note = 'sleep calls converted in %d function(s)' % n\n    except SyntaxError as e:\n        conv, note = src, 'could not convert sleeps (%s); running as written' % e\n    return conv, note\n";
+var CON={open:false,tab:null,sig:'',w:460,mode:'scripts'};
 try{var _cw=parseInt(localStorage.getItem(KEY+'.conw'),10);if(_cw>=260&&_cw<=1400)CON.w=_cw}catch(e){}
 function applyCon(){
   var m=$('#main');if(!m)return;
@@ -3458,19 +3485,22 @@ function conSections(){
   return secs;
 }
 function openConsole(spec){
+  if(spec==='run'){CON.open=true;applyCon();setConMode('run');return}
+  if(spec&&CON.mode==='run')setConMode('scripts');
   if(spec){
     if(spec.indexOf(':')<0){var hs=piHosts();spec=hs.length?'h'+hs[0].id+':'+spec:null}
     if(spec)CON.tab=spec;
   }
   CON.open=true;applyCon();renderConsole(true);
+  if(CON.mode==='run')startRun();
 }
 function openScreenConsole(n){
   var g=genScripts(n);
   openConsole('s'+n.id+':'+(g.list?(g.list.some(function(x){return x.id==='custom'})?'custom':g.list.some(function(x){return x.id==='render'})?'render':g.list[0].id):'render'));
 }
-function closeConsole(){CON.open=false;applyCon()}
+function closeConsole(){CON.open=false;applyCon();stopRun()}
 function renderConsole(force){
-  if(!CON.open||!P)return;
+  if(!CON.open||!P||CON.mode==='run')return;
   var secs=conSections(),flat=[];
   secs.forEach(function(s){s.tabs.forEach(function(t){flat.push(t)})});
   var cur=flat.filter(function(t){return t.id===CON.tab})[0]||flat[0];
@@ -3501,11 +3531,223 @@ function renderConsole(force){
     if(oldTab===CON.tab)pre.scrollTop=st;
   }
 }
+/* ---------- run console: a virtual unit that runs what is on the canvas ---------- */
+var PY_BASE='https://cdn.jsdelivr.net/pyodide/v0.26.4/full/';
+var SIM={on:false,k:1,v:0,r:performance.now(),speed:1,paused:false,timer:null,start:0,hostId:null,scr:[],acts:{},sig:'',log:[],eng:{},logT:null,clk:null};
+function simNow(){return SIM.v+(performance.now()-SIM.r)*SIM.k}
+function simSetK(k){
+  SIM.v=simNow();SIM.r=performance.now();SIM.k=k;
+  Object.keys(SIM.eng).forEach(function(id){var e=SIM.eng[id];if(e.w&&e.state!=='loading')e.w.postMessage({type:'speed',k:k})});
+}
+function p2(x){return (x<10?'0':'')+x}
+function runLog(msg){
+  var t=Math.max(0,(simNow()-SIM.start)/1000);
+  SIM.log.push('['+p2(Math.floor(t/60))+':'+p2(Math.floor(t%60))+'] '+msg);
+  if(SIM.log.length>400)SIM.log.shift();
+  if(!SIM.logT)SIM.logT=setTimeout(function(){
+    SIM.logT=null;var el=$('#runLog');if(!el)return;
+    var end=el.scrollTop+el.clientHeight>=el.scrollHeight-10;el.textContent=SIM.log.join('\n');if(end)el.scrollTop=el.scrollHeight;
+  },120);
+}
+function runHost(){
+  var hs=P.nodes.filter(isHost),h0=hs.filter(function(x){return x.id===SIM.hostId})[0]||hs[0]||null;
+  SIM.hostId=h0?h0.id:null;return h0;
+}
+function runParts(hn){return hn?mountedOn(hn.id):[]}
+function runSig(){
+  var hn=runHost();if(!hn)return 'none';
+  var ps=runParts(hn).map(function(p){return p.id+(ADDONS[p.type].layout&&p.props.dsp&&p.props.dsp.custom&&p.props.dsp.custom.on?'c':'')});
+  var ac=P.nodes.filter(function(n){return n.type==='action'&&n.props.host===hn.id}).map(function(n){return n.id});
+  return P.id+'|'+hn.id+'|'+ps.join(',')+'|'+ac.join(',')+'|'+P.nodes.filter(function(n){return n.type==='ps'}).length;
+}
+function inputsFor(n){var o={};strVals(n).forEach(function(v,j){o['in'+(j+1)]=v===undefined?null:v});return JSON.stringify(o)}
+
+/* ----- the optional Python engine ----- */
+function engStop(st){
+  var e=SIM.eng[st.n.id];if(!e)return;
+  if(e.w)try{e.w.terminate()}catch(x){}
+  delete SIM.eng[st.n.id];st.eng=null;engUi(st);
+}
+function engUi(st){
+  if(!st.engBox)return;
+  var e=SIM.eng[st.n.id],s=e?e.state:'none';st.engBox.innerHTML='';
+  var msg={none:'Custom program. Needs the Python engine to run here.',loading:'Loading the Python engine'+(e&&e.stage?': '+e.stage:'')+'. The first time this downloads about 10 MB.',ready:'Python engine ready.',running:'Your program is running.',done:'Your program finished.',error:'Your program stopped with an error. See the log.',failed:'Could not load the Python engine. It needs an internet connection the first time.'}[s];
+  st.engBox.appendChild(h('div',{class:'note',style:'margin:0 0 6px',text:msg}));
+  if(s==='none'||s==='failed')st.engBox.appendChild(h('button',{class:'btn sm',text:'Load Python engine',onclick:function(){engLoad(st)}}));
+  if(s==='running'||s==='done'||s==='error')st.engBox.appendChild(h('button',{class:'btn sm',text:'Run it again',onclick:function(){engStop(st);engLoad(st)}}));
+}
+function engLoad(st){
+  SIM.wantEng=true;
+  if(typeof Worker==='undefined'){toast('This browser cannot run the Python engine');return}
+  var e=SIM.eng[st.n.id]={state:'loading',stage:'',w:null,run:false};st.eng=e;
+  try{
+    var url=URL.createObjectURL(new Blob([ENGINE_JS],{type:'text/javascript'}));
+    e.w=new Worker(url);
+  }catch(x){e.state='failed';runLog('Python engine: '+x.message);engUi(st);return}
+  e.w.onmessage=function(ev){
+    var m=ev.data;
+    if(m.type==='stage'){e.stage=m.text;engUi(st)}
+    else if(m.type==='ready'){e.state='ready';engUi(st);if(SIM.on)engRun(st)}
+    else if(m.type==='started'){e.state='running';runLog('Python: '+m.note);engUi(st)}
+    else if(m.type==='log')runLog(m.text);
+    else if(m.type==='frame'){
+      if(st.cv.width!==m.w||st.cv.height!==m.h){st.cv.width=m.w;st.cv.height=m.h;st.ctx=st.cv.getContext('2d')}
+      st.ctx.putImageData(new ImageData(new Uint8ClampedArray(m.buf),m.w,m.h),0,0);
+      st.upd++;st.stat.textContent=(m.kind==='partial'?'Partial refresh':m.kind==='full'?'Full refresh':'Screen update')+' #'+st.upd+(m.kind==='full'&&m.note&&m.note!=='display'&&m.note!=='clear'?' ('+m.note+')':'');
+      if(m.kind==='full'){st.cv.classList.remove('flash');void st.cv.offsetWidth;st.cv.classList.add('flash')}
+      runLog(st.title+': '+st.stat.textContent);
+    }
+    else if(m.type==='done'){e.state='done';engUi(st)}
+    else if(m.type==='error'){
+      var lines=String(m.text).split('\n').filter(function(x){return x.trim()}),tail=lines.slice(-4).join(' | ');
+      runLog('Python error: '+tail);
+      e.state=(m.phase==='init')?'failed':'error';engUi(st);
+    }
+  };
+  e.w.onerror=function(ev){e.state='failed';runLog('Python engine error: '+(ev&&ev.message||'could not start'));engUi(st)};
+  e.w.postMessage({type:'init',base:PY_BASE,pyrt:PYRT});
+  engUi(st);
+}
+function engRun(st){
+  var e=SIM.eng[st.n.id];if(!e||e.state!=='ready')return;
+  var g=genScripts(st.n),c=g.list&&g.list.filter(function(x){return x.id==='custom'})[0];if(!c)return;
+  var mk='# ===== Your program starts here =====',i=c.code.indexOf(mk);
+  e.last=inputsFor(st.n);
+  e.w.postMessage({type:'run',header:c.code.slice(0,i),user:c.code.slice(i+mk.length),k:SIM.k,json:e.last});
+}
+
+/* ----- the Run tab ----- */
+function buildRun(){
+  var R=$('#conRun');if(!R)return;
+  Object.keys(SIM.eng).forEach(function(id){var e=SIM.eng[id];if(e.w)try{e.w.terminate()}catch(x){}});SIM.eng={};
+  R.innerHTML='';SIM.scr=[];SIM.sig=runSig();
+  var hn=runHost();
+  if(!hn){R.appendChild(h('div',{class:'note',text:'Add a Pi to the canvas first. The Run tab then behaves like the unit: screens redraw on their refresh timing, you can press keys, move sensors and fire actions.'}));return}
+  var bar=h('div',{class:'rbar'});
+  var pb=h('button',{class:'btn sm pri',text:SIM.paused?'Resume':'Pause',onclick:function(){SIM.paused=!SIM.paused;simSetK(SIM.paused?0:SIM.speed);pb.textContent=SIM.paused?'Resume':'Pause';runLog(SIM.paused?'Paused':'Resumed')}});
+  var rb=h('button',{class:'btn sm',text:'Restart',onclick:runRestart});
+  var sp=h('select',{class:'sm','aria-label':'Speed'});[[1,'1x'],[2,'2x'],[5,'5x'],[10,'10x'],[30,'30x'],[60,'60x']].forEach(function(o){sp.appendChild(h('option',{value:o[0],text:o[1]}))});sp.value=String(SIM.speed);
+  sp.addEventListener('change',function(){SIM.speed=Number(sp.value);if(!SIM.paused)simSetK(SIM.speed)});
+  SIM.clk=h('span',{class:'rclk',text:'00:00'});
+  [pb,rb,sp,SIM.clk].forEach(function(x){bar.appendChild(x)});R.appendChild(bar);
+  var hs=P.nodes.filter(isHost);
+  if(hs.length>1){
+    var hsel=h('select',{class:'sm',style:'margin-bottom:8px'});hs.forEach(function(x){hsel.appendChild(h('option',{value:x.id,text:HOSTS[x.type].title+' #'+x.id}))});hsel.value=String(hn.id);
+    hsel.addEventListener('change',function(){SIM.hostId=parseInt(hsel.value,10);runRestart()});R.appendChild(hsel);
+  }
+  var parts=runParts(hn),scrs=parts.filter(function(p){return ADDONS[p.type].layout});
+  R.appendChild(h('div',{class:'sec',text:hn?HOSTS[hn.type].title+' #'+hn.id:'Unit'}));
+  if(!scrs.length)R.appendChild(h('div',{class:'note',text:'No screen mounted on this unit yet. Everything else below still runs.'}));
+  scrs.forEach(function(sc){
+    var c=dcfg(sc),cu=sc.props.dsp&&sc.props.dsp.custom&&sc.props.dsp.custom.on;
+    var cv=h('canvas',{width:c.w,height:c.h,style:'width:'+Math.min(c.w*2,420)+'px;max-width:100%'}),stat=h('div',{class:'rs',text:'Waiting'});
+    var st={n:sc,cv:cv,ctx:cv.getContext('2d'),stat:stat,upd:0,skipped:0,next:0,last:null,custom:!!cu,title:ADDONS[sc.type].short,engBox:null,eng:null};
+    var card=h('div',{class:'rscr'},[h('div',{class:'rh'},[h('b',{text:ADDONS[sc.type].title}),h('span',{class:'note',style:'margin:0',text:cu?'custom program':(sc.type==='eink'?'e-ink':'screen')})]),cv,stat]);
+    if(cu){st.engBox=h('div',{style:'margin-top:8px'});card.appendChild(st.engBox);engUi(st)}
+    SIM.scr.push(st);R.appendChild(card);if(cu&&SIM.wantEng)engLoad(st);return;
+  });
+  /* inputs */
+  var any=false,inp=h('div');
+  parts.filter(function(p){return p.type==='lcd'}).forEach(function(l){
+    any=true;inp.appendChild(h('div',{class:'lbl',style:'margin:6px 0',text:'LCD keys and joystick (hold)'}));
+    var g=h('div',{class:'rkeys'});
+    ['up','down','left','right','press','key1','key2','key3'].forEach(function(k){
+      var bt=h('button',{class:'btn sm',text:k});
+      function on(){l.rt.k=l.rt.k||{};l.rt.k[k]=true;refresh();runLog('LCD '+k+' pressed')}function off(){if(l.rt.k&&l.rt.k[k]){l.rt.k[k]=false;refresh()}}
+      bt.addEventListener('pointerdown',on);bt.addEventListener('pointerup',off);bt.addEventListener('pointerleave',off);bt.addEventListener('pointercancel',off);g.appendChild(bt);
+    });inp.appendChild(g);
+  });
+  parts.filter(function(p){return p.type!=='ps'&&!ADDONS[p.type].layout&&(ADDONS[p.type].outs||[]).length}).forEach(function(p){
+    any=true;inp.appendChild(h('div',{class:'lbl',style:'margin:10px 0 4px',text:ADDONS[p.type].title+' (simulated reading)'}));
+    ADDONS[p.type].outs.forEach(function(o){inp.appendChild(simInput(p,o))});
+  });
+  P.nodes.filter(function(n){return n.type==='ps'&&n.props.mount===hn.id}).forEach(function(p){
+    any=true;inp.appendChild(h('div',{class:'lbl',style:'margin:10px 0 4px',text:'PiSugar battery'}));
+    var r=h('input',{type:'range',min:'0',max:'100',step:'1',value:String(p.props.bat),style:'width:100%'});r.addEventListener('input',function(){p.props.bat=parseInt(r.value,10);touch(p)});
+    var ck=h('input',{type:'checkbox'});ck.checked=!!p.props.chg;ck.addEventListener('input',function(){p.props.chg=ck.checked;touch(p)});
+    inp.appendChild(r);inp.appendChild(h('label',{class:'lbl'},[ck,' charging']));
+  });
+  var acts=P.nodes.filter(function(n){return n.type==='action'&&n.props.host===hn.id});
+  if(acts.length){
+    any=true;inp.appendChild(h('div',{class:'lbl',style:'margin:10px 0 4px',text:'Actions (fire by hand, or let a wire trigger them)'}));
+    var ag=h('div',{class:'flex'});
+    acts.forEach(function(a){var tg=actionTarget(a);ag.appendChild(h('button',{class:'btn sm',text:tg?tg.a.label:'Action '+a.id,onclick:function(){a.rt.fired=(a.rt.fired||0)+1;simFire(a);refresh()}}))});
+    inp.appendChild(ag);
+  }
+  var lib=libFor(hn);
+  if(lib){any=true;SIM.libEl=h('div',{class:'note',text:''});inp.appendChild(h('div',{class:'lbl',style:'margin:10px 0 4px',text:'Photo library'}));inp.appendChild(SIM.libEl)}else SIM.libEl=null;
+  if(any){R.appendChild(h('div',{class:'sec',text:'Inputs'}));R.appendChild(inp)}
+  R.appendChild(h('div',{class:'sec',text:'Log'}));
+  var lg=h('pre',{id:'runLog'});lg.textContent=SIM.log.join('\n');R.appendChild(lg);
+  R.appendChild(h('div',{class:'flex',style:'margin-top:6px'},[h('button',{class:'btn sm',text:'Clear log',onclick:function(){SIM.log=[];lg.textContent=''}})]));
+  R.appendChild(h('div',{class:'note',text:'This shows what your logic does and when. It cannot show real e-ink ghosting or refresh speed, or driver mistakes, so test on the hardware too.'}));
+  SIM.acts={};acts.forEach(function(a){SIM.acts[a.id]=a.rt.fired||0});
+  refresh();SIM.scr.forEach(function(st){if(!st.custom)runDraw(st,true)});
+}
+function runDraw(st,first){
+  var n=st.n,rf=rfOf(n),ctx=st.ctx;
+  paintDisplay(ctx,n,[],null);
+  var sig=st.cv.toDataURL();
+  if(!first&&st.last===sig){
+    if(rf.skip&&n.type==='eink'){st.skipped++;st.stat.textContent='Unchanged, skipped ('+st.skipped+' skipped so far)';return}
+    if(n.type!=='eink'){st.upd++;st.stat.textContent='Redraw #'+st.upd+' (nothing changed)';return}
+  }
+  st.last=sig;st.upd++;
+  var mono=dcfg(n).mono,inv=mono&&invOf(n),kind='redraw';
+  if(n.type==='eink'){kind=(rf.mode==='full'||st.upd===1||(rf.fullEvery&&st.upd%rf.fullEvery===0))?'full':'partial'}
+  var txt=(n.type==='eink'?(kind==='full'?'Full refresh':'Partial refresh'):'Redraw')+' #'+st.upd+(mono?(inv?', inverted':', normal'):'');
+  st.stat.textContent=txt;
+  if(kind==='full'){st.cv.classList.remove('flash');void st.cv.offsetWidth;st.cv.classList.add('flash')}
+  if(!first)runLog(st.title+': '+txt);
+}
+function runTick(){
+  if(!SIM.on)return;
+  if(!CON.open||CON.mode!=='run'){return}
+  var sg=runSig();if(sg!==SIM.sig){buildRun();return}
+  var t=simNow();
+  refresh();
+  SIM.scr.forEach(function(st){
+    if(st.custom){var e=SIM.eng[st.n.id];if(e&&e.state==='running'){var j=inputsFor(st.n);if(j!==e.last){e.last=j;e.w.postMessage({type:'inputs',json:j})}}return}
+    if(t>=st.next){st.next=t+rf1(st.n)*1000;runDraw(st,false)}
+  });
+  Object.keys(SIM.acts).forEach(function(id){
+    var a=NM[id];if(!a)return;var f=a.rt.fired||0;
+    if(f!==SIM.acts[id]){SIM.acts[id]=f;var tg=actionTarget(a);runLog('Action fired: '+(tg?tg.a.label:'#'+id)+' (x'+f+')')}
+  });
+  if(SIM.libEl){var hn=runHost(),lb=hn&&libFor(hn),m=lb&&lb.props.sim;SIM.libEl.textContent=m?('Photos: '+m.count+', showing #'+m.index):''}
+  var el=Math.max(0,(t-SIM.start)/1000);if(SIM.clk)SIM.clk.textContent=p2(Math.floor(el/60))+':'+p2(Math.floor(el%60));
+}
+function rf1(n){return rfOf(n).every}
+function runRestart(){
+  Object.keys(SIM.eng).forEach(function(id){var e=SIM.eng[id];if(e.w)try{e.w.terminate()}catch(x){}});SIM.eng={};
+  P.nodes.forEach(function(n){if(n.type==='timer'){n.rt.t0=null;n.rt.fz=0}if(n.type==='action'){n.rt.fired=0;n.rt.prev=false}});
+  SIM.log=[];SIM.start=simNow();buildRun();runLog('Unit restarted');
+}
+function startRun(){
+  if(SIM.on)return;
+  SIM.on=true;SIM.paused=false;simSetK(SIM.speed);SIM.start=simNow();
+  buildRun();runLog('Unit powered on');
+  SIM.timer=setInterval(runTick,100);
+}
+function stopRun(){
+  if(!SIM.on)return;
+  SIM.on=false;clearInterval(SIM.timer);SIM.timer=null;
+  Object.keys(SIM.eng).forEach(function(id){var e=SIM.eng[id];if(e.w)try{e.w.terminate()}catch(x){}});SIM.eng={};
+  simSetK(1);
+}
+function setConMode(m){
+  if(m!=='run')m='scripts';
+  CON.mode=m;$('#conPanel').classList.toggle('run',m==='run');
+  $all('#conModes .cm').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-m')===m)});
+  if(m==='run'){if(CON.open)startRun()}else{stopRun();renderConsole(true)}
+}
+
 function openControls(){openConsole('controls')}
 function openRun(){openConsole('main')}
 function openProjectSetup(){openConsole('setup')}
 $('#btnCon').addEventListener('click',function(){CON.open?closeConsole():openConsole()});
 $('#conClose').addEventListener('click',closeConsole);
+$all('#conModes .cm').forEach(function(b){b.addEventListener('click',function(){var m=b.getAttribute('data-m');if(!CON.open)CON.open=true,applyCon();setConMode(m)})});
 $('#conRail').addEventListener('click',function(){openConsole()});
 (function(){
   var g=$('#conGrip'),on=false;
