@@ -10,10 +10,10 @@
   --hw:#D85A30;--logic:#1D9E75;--data:#BA7517;--view:#7F77DD;--ok:#1D9E75;--bad:#C0392B;
   --t-num:#1D9E75;--t-bool:#7F77DD;--t-text:#BA7517;--t-any:#888780;
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--gndc:#2F2F2F;
 }
 @media (prefers-color-scheme:dark){
-  :root{--bg:#1a1a18;--panel:#262624;--line:rgba(255,255,255,.18);--text:#ecebe5;--mut:#a3a199;--dot:rgba(255,255,255,.1)}
+  :root{--gndc:#C9C9C9;--bg:#1a1a18;--panel:#262624;--line:rgba(255,255,255,.18);--text:#ecebe5;--mut:#a3a199;--dot:rgba(255,255,255,.1)}
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;-webkit-text-size-adjust:100%}
@@ -65,6 +65,20 @@ button{cursor:pointer}
 .btn.pri{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
 .btn.sm{padding:4px 8px;font-size:12px}
 .btn.on{background:var(--text);color:var(--bg)}
+.cstrip{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.cchip{display:inline-flex;align-items:center;gap:5px;border:1.5px solid var(--cc);border-radius:6px;padding:1px 7px;font-size:11px;line-height:1.5;background:var(--bg);color:var(--text);white-space:nowrap}
+.cs{display:inline-block;width:9px;height:9px;background:var(--cc);flex:none}
+.cs.dot{border-radius:50%}.cs.ring{border-radius:50%;background:transparent;border:2.5px solid var(--cc)}
+.cs.dia{transform:rotate(45deg) scale(.82)}.cs.tri{clip-path:polygon(50% 0,100% 100%,0 100%)}
+.cs.hex{clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+.cs.bar{width:15px;height:5px;border-radius:2px}.cs.usb{width:11px;height:8px;border-radius:2px 2px 5px 5px}
+.cs.hat{width:15px;height:7px;background:repeating-linear-gradient(90deg,var(--cc) 0 2px,transparent 2px 4px)}
+.krow{display:flex;gap:10px;align-items:center;margin:7px 0}.kdesc{font-size:12px;color:var(--mut)}
+.bbrow{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin:6px 0;background:var(--bg)}
+.bbname{font-size:13px;font-weight:600;display:flex;align-items:center;gap:4px}
+.bbsig{display:inline-flex;align-items:center;gap:4px}.bbg{font-size:11px;color:var(--mut)}.bbn{width:54px;height:26px;padding:0 4px}
+.bbdraw{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:#faf8f3}.bbdraw svg{display:block;max-width:none}
+.wtr{display:flex;gap:8px;align-items:center;margin:4px 0;font-size:12px;flex-wrap:wrap}.wtt{font-family:var(--mono);font-size:11px}
 .chipx{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 9px;font-size:12px;background:var(--bg)}
 .sw{width:9px;height:9px;border-radius:50%;display:inline-block}
 .msg-ok{color:var(--ok)}.msg-bad{color:var(--bad)}
@@ -147,6 +161,7 @@ select.sm{height:34px;border:1px solid var(--line);border-radius:8px;background:
 <div id="bar">
   <button id="btnAdd" class="btn pri">+ Add</button>
   <button id="btnFit" class="btn">Fit</button>
+  <button id="btnKey" class="btn">Key</button>
   <span id="hint">Drag a header to move. Drag from a dot to wire. Pinch to zoom.</span>
 </div>
 <div id="back"></div>
@@ -342,6 +357,7 @@ def('esp',{cat:'hw',title:'ESP32-S3 round LCD',desc:'Host. Touch, tilt, wired ad
 function hostBody(n,b){
   n.rt.list=h('div',{class:'lbl'});
   b.appendChild(n.rt.list);
+  n.rt.strip=h('div',{class:'cstrip'});b.appendChild(n.rt.strip);
   if(n.type!=='esp'){b.appendChild(lab('Simulated CPU temp'));b.appendChild(inp(n,'cpu',{type:'range',min:30,max:85,step:1}))}
   b.appendChild(h('div',{class:'flex'},[
     h('button',{class:'btn sm',text:'Pin map',onclick:function(){openPins(n)}}),
@@ -353,6 +369,7 @@ function hostUpd(n){
   var T=HOSTS[n.type],txt=ad.length?'Attached: '+ad.map(function(a){return ADDONS[a.type].short}).join(', '):'Nothing attached';
   if(T.pi){var u={};ad.forEach(function(a){claimsOf(a).forEach(function(c){u[c.g]=1})});txt+=' | GPIO in use: '+Object.keys(u).length+' of 26'}
   n.rt.list.textContent=txt;
+  hostStrip(n);
 }
 
 function mountBody(n,b){
@@ -361,6 +378,7 @@ function mountBody(n,b){
     var v=n.rt.sel.value;n.props.mount=v===''?null:parseInt(v,10);touch(n);commitNow();drawWires();
   });
   b.appendChild(lab('Mounted on'));b.appendChild(n.rt.sel);n.rt.warn=h('div',{class:'lbl msg-bad'});b.appendChild(n.rt.warn);
+  n.rt.strip=h('div',{class:'cstrip'});b.appendChild(n.rt.strip);
 }
 function mountUpd(n){
   var hosts=P.nodes.filter(isHost),opts=[{v:'',t:'Not mounted',d:false}];
@@ -378,6 +396,7 @@ function mountUpd(n){
   var hn2=hostOf(n);
   EL[n.id].sub.textContent=hn2?'on '+HOSTS[hn2.type].short+' #'+hn2.id:'not mounted';
   if(n.rt.warn){var f2=hn2?fit(n,hn2):null;n.rt.warn.textContent=f2&&(f2.warn||(!f2.ok?f2.msg:''))||''}
+  drawStrip(n);
 }
 function dspDefaults(type){
   if(type==='p_ssd1306')return{els:[
@@ -1124,6 +1143,739 @@ function simFire(n){
   var lib=libFor(hn);
   if(lib){var m=lib.props.sim=lib.props.sim||{count:0,index:0};m.count=(Number(m.count)||0)+1;m.index=m.count}
 }
+/* ---------- connection types: one color, shape and label each ---------- */
+var CONN={
+  v33:{label:'3.3V',color:'#F08A2E',shape:'ring',wire:'orange',what:'3.3 volt power'},
+  v5:{label:'5V',color:'#D9423E',shape:'ring',wire:'red',what:'5 volt power'},
+  gnd:{label:'GND',color:'#2F2F2F',shape:'ring',wire:'black',what:'Ground'},
+  i2c:{label:'I2C',color:'#1FA39A',shape:'sq',wire:'teal',what:'Two-wire bus (SDA, SCL). Many parts share it'},
+  spi:{label:'SPI',color:'#7E57C2',shape:'dia',wire:'purple',what:'Fast bus (MOSI, MISO, SCLK, CS). Used by most screens'},
+  uart:{label:'UART',color:'#4CAF50',shape:'tri',wire:'green',what:'Serial (TX, RX)'},
+  gpio:{label:'GPIO',color:'#D9A400',shape:'dot',wire:'yellow',what:'Single on/off signal pin'},
+  pwm:{label:'PWM',color:'#EC6FA5',shape:'hex',wire:'pink',what:'Pulse signal for servos, buzzers and dimming'},
+  csi:{label:'Camera ribbon',color:'#8D5B3A',shape:'bar',wire:'ribbon',what:'Flat ribbon to the camera port (MIPI CSI)'},
+  dsi:{label:'Display ribbon',color:'#8D5B3A',shape:'bar',wire:'ribbon',what:'Flat ribbon to the display port (MIPI DSI)'},
+  usb:{label:'USB',color:'#7A8798',shape:'usb',wire:'cable',what:'USB cable or plug'},
+  hat:{label:'40-pin HAT',color:'#9A9A9A',shape:'hat',wire:'none',what:'Sits directly on the 40-pin header'}
+};
+var CONN_ORDER=['v33','v5','gnd','i2c','spi','uart','gpio','pwm','csi','dsi','usb','hat'];
+var IFK={I2C:'i2c',SPI:'spi',UART:'uart',GPIO:'gpio',CSI:'csi',DSI:'dsi',USB:'usb'};
+var IS_HAT={eink:1,lcd:1,ps:1,p_inky:1};
+function connColor(k){return CONN[k].color}
+function connChip(k,text){
+  var c=CONN[k];
+  return h('span',{class:'cchip',title:c.what,style:'--cc:'+(k==='gnd'?'var(--gndc)':c.color)},[h('i',{class:'cs '+c.shape}),text||c.label]);
+}
+function plainChip(text,col,shape){return h('span',{class:'cchip',style:'--cc:'+col},[h('i',{class:'cs '+(shape||'hat')}),text])}
+function stripSpec(n){
+  var A=ADDONS[n.type],out=[];
+  if(!A)return out;
+  if(IS_HAT[n.type])out.push({k:'hat',t:'40-pin HAT'});
+  var X=BBX[n.type];
+  if(X&&X.v)out.push({k:X.v});
+  if(X)out.push({k:'gnd'});
+  (A.ifaces||[]).forEach(function(f){
+    var k=IFK[f];if(!k)return;var t=CONN[k].label;
+    if(k==='i2c'&&A.addr)t+=' '+A.addr.slice(0,2).join(' / ');
+    if(k==='gpio'&&A.claims&&A.claims.length)t+=' '+claimsOf(n).map(function(c){return c.g}).join(', ');
+    if(k==='uart'&&A.claims&&A.claims.length)t+=' '+claimsOf(n).map(function(c){return c.g}).join('/');
+    out.push({k:k,t:t});
+  });
+  if(n.type==='p_bb'){out.push({k:'v33',t:'3.3V rail'});out.push({k:'gnd',t:'GND rail'});var pl=bbPlan(n);if(pl.rails.v5)out.push({k:'v5',t:'5V rail'})}
+  var bb=bbFor(n);if(bb)out.push({k:'bb',t:'On breadboard #'+bb.id});
+  return out;
+}
+function drawStrip(n){
+  if(!n.rt||!n.rt.strip)return;
+  var spec=stripSpec(n),sig=JSON.stringify(spec);
+  if(n.rt.ssig===sig)return;n.rt.ssig=sig;
+  n.rt.strip.innerHTML='';
+  spec.forEach(function(s){n.rt.strip.appendChild(s.k==='bb'?plainChip(s.t,'#8a7f6a','hat'):connChip(s.k,s.t))});
+}
+function hostStrip(n){
+  if(!n.rt||!n.rt.strip)return;
+  var T=HOSTS[n.type],cap=CAP[n.type]||{},spec=[];
+  if(T.pi){spec.push({k:'hat',t:'40-pin header'});spec.push({k:'i2c'});spec.push({k:'spi'});spec.push({k:'uart'})}
+  if(cap.mipi)spec.push({k:'csi',t:'Ribbon ports x'+cap.mipi});
+  spec.push({k:'usb'});
+  var sig=JSON.stringify(spec);if(n.rt.ssig===sig)return;n.rt.ssig=sig;
+  n.rt.strip.innerHTML='';spec.forEach(function(s){n.rt.strip.appendChild(connChip(s.k,s.t))});
+}
+function openKey(){
+  openSheet('Connection key',function(b){
+    b.appendChild(h('div',{class:'note',text:'Every connection type has its own color, shape and label, so the color is never the only clue. The same key is used on the module chips, the pin map and the breadboard drawing.'}));
+    CONN_ORDER.forEach(function(k){
+      b.appendChild(h('div',{class:'krow'},[connChip(k),h('span',{class:'kdesc',text:CONN[k].what+(CONN[k].wire&&CONN[k].wire!=='none'&&CONN[k].wire!=='ribbon'&&CONN[k].wire!=='cable'?'. Wire: '+CONN[k].wire:'')})]));
+    });
+  });
+}
+
+/* ---------- breadboard ---------- */
+var BB_OK={p_ssd1306:1,p_st7789:1,p_ili9341:1,p_bme280:1,p_mpu6050:1,p_vl53l0x:1,p_ads1115:1,p_dht22:1,p_hcsr04:1,p_pir:1,p_gps:1,p_button:1,p_encoder:1,p_touchpad:1};
+var BBX={
+  p_ssd1306:{v:'v33',note:'Most 0.96 in OLED modules run from 3.3V. Check the label on yours before powering it.'},
+  p_st7789:{v:'v33',note:'If you do not need to dim the backlight, BL can go to the 3.3V rail instead of a GPIO.'},
+  p_ili9341:{v:'v33'},
+  p_bme280:{v:'v33'},
+  p_mpu6050:{v:'v33'},
+  p_vl53l0x:{v:'v33'},
+  p_ads1115:{v:'v33'},
+  p_dht22:{v:'v33',note:'A bare 4-pin DHT22 needs a 10 kOhm resistor between DATA and VCC. Most 3-pin modules already have one.'},
+  p_hcsr04:{v:'v5',divider:'ECHO',note:'ECHO outputs 5V. Use a voltage divider (1 kOhm in series, 2 kOhm to ground) before the Pi pin.'},
+  p_pir:{v:'v5',note:'HC-SR501 style PIR sensors run from 5V and give a 3.3V signal.'},
+  p_gps:{v:'v33',cross:{TXD:'RX',RXD:'TX'},note:'Module TX goes to the Pi RXD pin and module RX to the Pi TXD pin. Enable the serial port and turn off the serial console first.'},
+  p_button:{v:null,labels:{IN:'leg A'},gndLabel:'leg B',note:'The other leg goes to GND. The script uses the Pi internal pull-up, so no resistor is needed.'},
+  p_encoder:{v:'v33',note:'KY-040 style modules have a + pin. Connect it to 3.3V.'},
+  p_touchpad:{v:'v33'}
+};
+CATS.push({id:'proto',name:'Prototyping',blurb:'Wire loose parts'});
+function connOfSignal(r){
+  if(r==='SDA'||r==='SCL')return'i2c';
+  if(r==='MOSI'||r==='MISO'||r==='SCLK'||r==='CS')return'spi';
+  if(r==='TXD'||r==='RXD')return'uart';
+  return'gpio';
+}
+function physOf(g){var i=PINS.indexOf(String(g));return i<0?0:i+1}
+function bbFor(n){
+  if(!BB_OK[n.type])return null;
+  var hn=hostOf(n);if(!hn)return null;
+  var bbs=P.nodes.filter(function(x){return x.type==='p_bb'&&x.props.mount===hn.id}).sort(function(a,b){return a.id-b.id});
+  for(var i=0;i<bbs.length;i++)if(!(bbs[i].props.off||{})[n.id])return bbs[i];
+  return null;
+}
+function bbParts(bb){
+  var hn=hostOf(bb);if(!hn)return[];
+  return mountedOn(hn.id).filter(function(p){return bbFor(p)===bb}).sort(function(a,b){return a.id-b.id});
+}
+function editableSig(A,c){return !!(c.flex||A.pinsEdit||(A.ifaces&&A.ifaces.length===1&&A.ifaces[0]==='GPIO'))}
+var BB_FREE=[17,27,22,23,24,25,5,6,12,13,16,19,20,21,26,4];
+/* Moves flexible signals off pins that something else already uses, so the board works when parts are added. */
+function bbAssign(bb,host){
+  var parts=bbParts(bb),taken={};
+  mountedOn(host.id).forEach(function(p){if(parts.indexOf(p)<0)claimsOf(p).forEach(function(c){(taken[c.g]=taken[c.g]||[]).push(c.sh)})});
+  parts.forEach(function(p){
+    var A=ADDONS[p.type];
+    claimsOf(p).forEach(function(c){
+      var t=taken[c.g];
+      var clash=t&&!(c.sh&&t.every(function(x){return x}));
+      if(clash&&editableSig(A,c)){
+        var g=BB_FREE.filter(function(x){return !taken[x]&&!mountedOn(host.id).some(function(o){return o!==p&&bbFor(o)!==bb&&claimsOf(o).some(function(k){return k.g===x})})})[0];
+        if(g!=null){p.props.pins=p.props.pins||{};p.props.pins[c.r]=g;p.props.pinsAuto=p.props.pinsAuto||{};p.props.pinsAuto[c.r]=1;c={g:g,r:c.r,sh:c.sh,flex:c.flex}}
+      }
+      (taken[c.g]=taken[c.g]||[]).push(c.sh);
+    });
+  });
+}
+function bbPlan(bb){
+  var host=hostOf(bb),pl={bb:bb,host:host,parts:[],terms:[],wires:[],table:[],warn:[],notes:[],items:[],rails:{v5:false},cols:0,mm:0,mf:0};
+  if(!host||!HOSTS[host.type].pi)return pl;
+  bbAssign(bb,host);
+  var parts=bbParts(bb),col=1,tmap={};
+  function term(key,phys,label,sub,conn){if(!tmap[key]){tmap[key]={key:key,phys:phys,label:label,sub:sub,conn:conn,x:0};pl.terms.push(tmap[key])}return tmap[key]}
+  parts.forEach(function(n){
+    var A=ADDONS[n.type],X=BBX[n.type]||{v:'v33'};
+    var sig=claimsOf(n).map(function(c){
+      var lbl=(X.cross&&X.cross[c.r])||(X.labels&&X.labels[c.r])||c.r;
+      return{label:lbl,r:c.r,g:c.g,conn:connOfSignal(c.r),edit:editableSig(A,c),sh:!!c.sh};
+    });
+    var pw=[];if(X.v)pw.push({label:'VCC',kind:X.v});pw.push({label:X.gndLabel||'GND',kind:'gnd'});
+    if(X.v==='v5')pl.rails.v5=true;
+    var w=Math.max(sig.length,pw.length,2);
+    pl.parts.push({n:n,A:A,X:X,sig:sig,pw:pw,col:col,w:w});col+=w+2;
+  });
+  pl.cols=col;
+  /* terminals on the Pi header */
+  term('3V3',1,'3V3','','v33');if(pl.rails.v5)term('5V',2,'5V','','v5');term('GND',6,'GND','','gnd');
+  var seen={};
+  pl.parts.forEach(function(p){
+    var A=p.A,nm=A.short;
+    p.sig.forEach(function(s,j){
+      var t=term('g'+s.g,physOf(s.g),'GPIO'+s.g,ALT[s.g]||'',s.conn);
+      s.term=t;
+      var prev=seen[s.g];
+      if(prev){
+        if(!(prev.sig.sh&&s.sh))pl.warn.push('GPIO'+s.g+' is used by both '+prev.part.A.short+' ('+prev.sig.label+') and '+nm+' ('+s.label+'). Change one in the list above.');
+        pl.table.push({from:prev.part.A.short+' '+prev.sig.label,to:nm+' '+s.label,conn:s.conn,note:'shared '+CONN[s.conn].label+' line, add a short jumper along the board'});
+        pl.wires.push({kind:'daisy',a:{p:prev.part,s:prev.sig},b:{p:p,s:s},conn:s.conn});pl.mm++;
+      }else{
+        seen[s.g]={part:p,sig:s};
+        pl.table.push({from:'Pi pin '+t.phys+' (GPIO'+s.g+(ALT[s.g]?' '+ALT[s.g]:'')+')',to:nm+' '+s.label,conn:s.conn,note:''});
+        pl.wires.push({kind:'sig',t:t,p:p,s:s,conn:s.conn});
+      }
+    });
+    p.pw.forEach(function(q){
+      pl.table.push({from:q.kind==='gnd'?'GND rail':(q.kind==='v5'?'5V rail':'3.3V rail'),to:nm+' '+q.label,conn:q.kind,note:''});
+      pl.wires.push({kind:'pwr',p:p,q:q,conn:q.kind});pl.mm++;
+    });
+    p.sig.forEach(function(s){if(p.n.props.pinsAuto&&p.n.props.pinsAuto[s.r])pl.notes.push(nm+' '+s.label+' was set to GPIO'+s.g+' automatically because its default pin was already taken. Change it in the list if you like.')});
+    if(p.X.note)pl.notes.push(nm+': '+p.X.note);
+    if(p.X.divider){pl.warn.push(nm+': '+p.X.divider+' is a 5V signal. Add the voltage divider (1 kOhm and 2 kOhm resistors) or a level shifter, or the Pi pin can be damaged.')}
+    var f=fit(p.n,host);
+    if(!f.ok)pl.warn.push(A.title+': '+f.msg);else if(f.warn&&f.warn.indexOf('Pins overlap')<0)pl.warn.push(A.title+': '+f.warn);
+  });
+  /* rail feeds from the Pi go first in the table */
+  var feeds=[{from:'Pi pin 1 (3V3)',to:'3.3V rail',conn:'v33',note:''}];
+  if(pl.rails.v5)feeds.push({from:'Pi pin 2 (5V)',to:'5V rail',conn:'v5',note:''});
+  feeds.push({from:'Pi pin 6 (GND)',to:'GND rail',conn:'gnd',note:''});
+  pl.table=feeds.concat(pl.table);pl.mf=feeds.length;
+  pl.terms.forEach(function(t){if(/^g/.test(t.key))pl.mf++});
+  if(pl.cols>62)pl.warn.push('These parts are wider than a full-size breadboard. Use a second board or fewer parts.');
+  /* shopping list */
+  var big=pl.cols>31;
+  pl.items.push('1 x '+(big?'full-size breadboard (830 tie points)':'half-size breadboard (400 tie points)'));
+  if(pl.parts.length){
+    pl.items.push(pl.mf+' x male-to-female jumper wires (Pi header to board)');
+    pl.items.push(pl.mm+' x male-to-male jumper wires (on the board)');
+  }
+  if(pl.parts.some(function(p){return p.X.divider}))pl.items.push('1 x 1 kOhm and 1 x 2 kOhm resistor (voltage divider for the 5V signal)');
+  if(pl.parts.some(function(p){return p.n.type==='p_dht22'}))pl.items.push('1 x 10 kOhm resistor (only for a bare 4-pin DHT22)');
+  return pl;
+}
+function bbText(pl){
+  var hn=pl.host,o=[];
+  o.push('BREADBOARD WIRING'+(hn?' ('+HOSTS[hn.type].title+' #'+hn.id+')':''));
+  o.push('The diagram is a simplified schematic: pin order on real modules varies, so match by pin label, not position.');
+  o.push('Power off the Pi before wiring.','');
+  if(!pl.parts.length){o.push('No parts are on this breadboard yet.');return o.join('\n')}
+  var wc=0;pl.table.forEach(function(r){wc=Math.max(wc,r.from.length)});
+  pl.table.forEach(function(r){o.push((r.from+'                                        ').slice(0,wc+2)+'->  '+r.to+'   ['+CONN[r.conn].label+(CONN[r.conn].wire&&['none','ribbon','cable'].indexOf(CONN[r.conn].wire)<0?', '+CONN[r.conn].wire+' wire':'')+']'+(r.note?'  '+r.note:''))});
+  if(pl.warn.length){o.push('','CHECK THESE:');pl.warn.forEach(function(w){o.push('  - '+w)})}
+  if(pl.notes.length){o.push('','NOTES:');pl.notes.forEach(function(w){o.push('  - '+w)})}
+  o.push('','PARTS FOR THE BOARD:');pl.items.forEach(function(w){o.push('  - '+w)});
+  return o.join('\n');
+}
+
+/* ---------- drawing as a scene, so the page and the PDF share it ---------- */
+function bbScene(pl){
+  var PITCH=26,bx=40,items=[];
+  var ncols=Math.max(pl.cols+1,14),bw=ncols*PITCH,W=Math.max(bx*2+bw,560);
+  var stripY=118,boardTop=270,rail0=boardTop+150,railGap=18,nRails=pl.rails.v5?3:2,H=rail0+nRails*railGap+36;
+  function R(x,y,w,hh,fill,stroke,r){items.push({t:'rect',x:x,y:y,w:w,h:hh,fill:fill,stroke:stroke,r:r||0})}
+  function T(x,y,s,str,o){o=o||{};items.push({t:'text',x:x,y:y,s:s,str:str,fill:o.fill||'#222222',anchor:o.anchor||'start',rot:o.rot||0,b:!!o.b})}
+  function L(x1,y1,x2,y2,col,w){items.push({t:'line',x1:x1,y1:y1,x2:x2,y2:y2,stroke:col,w:w||3})}
+  function C(x,y,r,fill,stroke){items.push({t:'circle',x:x,y:y,r:r,fill:fill,stroke:stroke})}
+  function PA(path,col,w){items.push({t:'path',d:path,stroke:col,w:w||3})}
+  R(0,0,W,H,'#FAF8F3','#D8D4CC',10);
+  T(14,22,13,'Raspberry Pi 40-pin header (only the pins used)',{b:1,fill:'#444444'});
+  /* pin x positions */
+  pl.parts.forEach(function(p){
+    var x0=bx+(p.col)*PITCH;p.x0=x0;p.rw=p.w*PITCH;
+    p.sig.forEach(function(s,j){s.x=x0+(j+0.5)*PITCH});
+    p.pw.forEach(function(q,j){q.x=x0+(j+0.5)*PITCH});
+  });
+  /* terminal order: rails left, then by average x of the pins using them */
+  var avg={};
+  pl.parts.forEach(function(p){p.sig.forEach(function(s){var k=s.term.key;avg[k]=avg[k]||{s:0,n:0};avg[k].s+=s.x;avg[k].n++})});
+  var order=pl.terms.slice().sort(function(a,b){
+    var ra=/^g/.test(a.key)?1:0,rb=/^g/.test(b.key)?1:0;if(ra!==rb)return ra-rb;
+    if(!ra)return a.phys-b.phys;
+    return avg[a.key].s/avg[a.key].n-avg[b.key].s/avg[b.key].n;
+  });
+  var tx0=bx+10,tw=Math.max(W-bx*2-20,order.length*26),step=order.length>1?tw/(order.length-1):0;
+  if(order.length>1&&step>46)step=46;
+  order.forEach(function(t,i){t.x=tx0+i*step});
+  /* board */
+  R(bx-6,boardTop-10,bw+12,rail0+nRails*railGap-boardTop+22,'#EFE9DA','#C9BFA8',8);
+  for(var c=0;c<ncols;c++)for(var r=0;r<10;r++){
+    var hy=boardTop+10+r*10+(r>=5?14:0);C(bx+c*PITCH+PITCH/2,hy,1.8,'#B9AF98');
+  }
+  var rails=[{k:'v33',y:rail0,t:'3.3V rail'}];if(pl.rails.v5)rails.push({k:'v5',y:rail0+railGap,t:'5V rail'});rails.push({k:'gnd',y:rail0+railGap*(rails.length),t:'GND rail'});
+  rails.forEach(function(rl){R(bx,rl.y,bw,12,connColor(rl.k),null,3);T(bx+bw-6,rl.y+9.5,9,rl.t,{fill:'#FFFFFF',anchor:'end',b:1})});
+  var railY={};rails.forEach(function(rl){railY[rl.k]=rl.y+6});
+  /* modules */
+  pl.parts.forEach(function(p){
+    R(p.x0+2,boardTop+22,p.rw-4,58,'#FFFFFF','#8F8670',6);
+    T(p.x0+p.rw/2,boardTop+55,11,p.A.short,{b:1,anchor:'middle',fill:'#222222'});
+    p.sig.forEach(function(s){T(s.x,boardTop+19,9,s.label,{anchor:'start',rot:-90,fill:'#333333'})});
+    p.pw.forEach(function(q){T(q.x+3,boardTop+96,9,q.label,{anchor:'start',rot:-90,fill:'#333333'})});
+  });
+  /* Pi terminals */
+  R(tx0-16,stripY-6,tw+32,14,'#2F2F2F',null,4);
+  order.forEach(function(t){
+    C(t.x,stripY,5,connColor(t.conn),'#FFFFFF');
+    T(t.x+3,stripY-12,9,'P'+t.phys+' '+t.label+(t.sub?' '+t.sub:''),{rot:-90,fill:'#333333'});
+  });
+  /* wires */
+  pl.wires.forEach(function(w){
+    if(w.kind==='sig'){
+      var s=w.s,t=w.t,y0=stripY+8,y1=boardTop+22;
+      PA([['M',t.x,y0],['C',t.x,y0+(y1-y0)*.55,s.x,y0+(y1-y0)*.45,s.x,y1]],connColor(w.conn));
+      C(s.x,y1,3.4,connColor(w.conn),'#FFFFFF');
+    }else if(w.kind==='daisy'){
+      var a=w.a.s,b=w.b.s,yy=boardTop+22;
+      PA([['M',a.x,yy],['C',a.x,yy-26,b.x,yy-26,b.x,yy]],connColor(w.conn),2.5);C(b.x,yy,3.4,connColor(w.conn),'#FFFFFF');
+    }else{
+      var q=w.q,y2=boardTop+80,ry=railY[q.kind];
+      L(q.x,y2,q.x,ry,connColor(q.kind),3);C(q.x,y2,3.4,connColor(q.kind),'#FFFFFF');C(q.x,ry,3.2,connColor(q.kind),'#FFFFFF');
+    }
+  });
+  /* rail feeds from the header, drawn down the left side */
+  order.filter(function(t){return !/^g/.test(t.key)}).forEach(function(t,i){
+    var ry=railY[t.conn],lx=bx-30+i*10;
+    PA([['M',t.x,stripY+8],['C',t.x,stripY+60,lx,stripY+30,lx,stripY+90],['L',lx,ry],['L',bx+4,ry]],connColor(t.conn),3);
+  });
+  if(!pl.parts.length)T(W/2,boardTop+60,13,'Add parts and mount them on this Pi to see them here',{anchor:'middle',fill:'#777777'});
+  return{w:W,h:H,items:items};
+}
+function sceneSvg(sc,opts){
+  function e(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+  function num(v){return Math.round(v*100)/100}
+  var o=['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+sc.w+' '+sc.h+'" width="'+sc.w+'" height="'+sc.h+'" font-family="Helvetica,Arial,sans-serif" role="img" aria-label="Breadboard wiring diagram">'];
+  sc.items.forEach(function(it){
+    if(it.t==='rect')o.push('<rect x="'+num(it.x)+'" y="'+num(it.y)+'" width="'+num(it.w)+'" height="'+num(it.h)+'" rx="'+(it.r||0)+'" fill="'+(it.fill||'none')+'" stroke="'+(it.stroke||'none')+'"/>');
+    else if(it.t==='circle')o.push('<circle cx="'+num(it.x)+'" cy="'+num(it.y)+'" r="'+it.r+'" fill="'+(it.fill||'none')+'" stroke="'+(it.stroke||'none')+'" stroke-width="1.2"/>');
+    else if(it.t==='line')o.push('<line x1="'+num(it.x1)+'" y1="'+num(it.y1)+'" x2="'+num(it.x2)+'" y2="'+num(it.y2)+'" stroke="'+it.stroke+'" stroke-width="'+it.w+'" stroke-linecap="round"/>');
+    else if(it.t==='path'){
+      var d=it.d.map(function(sg){return sg[0]+sg.slice(1).map(num).join(' ')}).join(' ');
+      o.push('<path d="'+d+'" fill="none" stroke="'+it.stroke+'" stroke-width="'+it.w+'" stroke-linecap="round"/>');
+    }else if(it.t==='text'){
+      o.push('<text x="'+num(it.x)+'" y="'+num(it.y)+'" font-size="'+it.s+'" fill="'+it.fill+'"'+(it.b?' font-weight="bold"':'')+(it.anchor!=='start'?' text-anchor="'+it.anchor+'"':'')+(it.rot?' transform="rotate('+it.rot+' '+num(it.x)+' '+num(it.y)+')"':'')+'>'+e(it.str)+'</text>');
+    }
+  });
+  o.push('</svg>');return o.join('');
+}
+
+/* ---------- breadboard block ---------- */
+function bbBody(n,b){
+  mountBody(n,b);
+  n.rt.sum=h('div',{class:'lbl'});b.appendChild(n.rt.sum);
+  n.rt.bw=h('div',{class:'lbl msg-bad'});b.appendChild(n.rt.bw);
+  b.appendChild(h('div',{class:'flex'},[
+    h('button',{class:'btn sm',text:'Diagram and wiring',onclick:function(){openBoard(n)}}),
+    h('button',{class:'btn sm',text:'Key',onclick:openKey})]));
+}
+function bbUpd(n){
+  mountUpd(n);drawStrip(n);
+  var pl=bbPlan(n);
+  n.rt.sum.textContent=pl.host?(pl.parts.length?pl.parts.length+' part'+(pl.parts.length===1?'':'s')+' on the board, '+(pl.mf+pl.mm)+' jumpers':'Mount parts on the same Pi and they land here'):'Mount this on a Pi first';
+  n.rt.bw.textContent=pl.warn.length?pl.warn[0]+(pl.warn.length>1?' (+'+(pl.warn.length-1)+' more)':''):'';
+}
+function openBoard(bb){
+  openSheet('Breadboard',function(b){
+    var box=h('div');b.appendChild(box);
+    function draw(){
+      box.innerHTML='';
+      var pl=bbPlan(bb);
+      if(!pl.host){box.appendChild(h('div',{class:'note',text:'Mount this breadboard on a Pi first. Parts mounted on the same Pi are wired onto it automatically.'}));return}
+      box.appendChild(h('div',{class:'note',text:'Parts that are not HATs (sensors, buttons, small screens) are wired onto this board automatically. The drawing is a simplified schematic: pin order on real modules varies, so match each wire by its pin label. Power the Pi off before wiring.'}));
+      if(pl.warn.length){pl.warn.forEach(function(w){box.appendChild(h('div',{class:'lbl msg-bad',style:'margin:6px 0',text:w}))})}
+      /* part list with switches and GPIO edits */
+      box.appendChild(h('div',{class:'sec',text:'Parts on this Pi'}));
+      var cand=mountedOn(pl.host.id).filter(function(p){return BB_OK[p.type]});
+      if(!cand.length)box.appendChild(h('div',{class:'note',text:'None yet. Add a sensor, button or small screen and mount it on this Pi.'}));
+      cand.forEach(function(p){
+        var A=ADDONS[p.type],row=h('div',{class:'bbrow'}),on=bbFor(p)===bb;
+        var cb=h('input',{type:'checkbox'});cb.checked=on;
+        cb.addEventListener('change',function(){bb.props.off=bb.props.off||{};if(cb.checked)delete bb.props.off[p.id];else bb.props.off[p.id]=1;touch(bb);commitNow();draw()});
+        row.appendChild(h('label',{class:'bbname'},[cb,' '+A.title+' #'+p.id]));
+        if(on){
+          var pp=pl.parts.filter(function(x){return x.n===p})[0];
+          (pp?pp.sig:[]).forEach(function(s){
+            var cell=h('span',{class:'bbsig'},[connChip(s.conn,s.label)]);
+            if(s.edit){
+              var inpn=h('input',{type:'number',min:2,max:27,step:1,class:'bbn'});inpn.value=s.g;
+              inpn.addEventListener('change',function(){var v=parseInt(inpn.value,10);if(!(v>=2&&v<=27)){inpn.value=s.g;return}p.props.pins=p.props.pins||{};p.props.pins[s.r]=v;if(p.props.pinsAuto)delete p.props.pinsAuto[s.r];touch(p);commitNow();drawWires();draw()});
+              cell.appendChild(h('span',{class:'bbg',text:'GPIO'}));cell.appendChild(inpn);
+            }else cell.appendChild(h('span',{class:'bbg',text:'GPIO'+s.g}));
+            row.appendChild(cell);
+          });
+        }else row.appendChild(h('span',{class:'note',text:'Wired straight to the Pi pins (not on this board)'}));
+        box.appendChild(row);
+      });
+      /* drawing */
+      box.appendChild(h('div',{class:'sec',text:'Drawing'}));
+      var dv=h('div',{class:'bbdraw'});dv.innerHTML=sceneSvg(bbScene(pl));box.appendChild(dv);
+      var used={};pl.table.forEach(function(r){used[r.conn]=1});
+      var lg=h('div',{class:'cstrip'});CONN_ORDER.filter(function(k){return used[k]}).forEach(function(k){lg.appendChild(connChip(k))});box.appendChild(lg);
+      /* table */
+      box.appendChild(h('div',{class:'sec',text:'Wiring table'}));
+      if(!pl.table.length||!pl.parts.length)box.appendChild(h('div',{class:'note',text:'Nothing to wire yet.'}));
+      else pl.table.forEach(function(r){box.appendChild(h('div',{class:'wtr'},[connChip(r.conn),h('span',{class:'wtt',text:r.from+'  ->  '+r.to+(r.note?'  ('+r.note+')':'')})]))});
+      if(pl.notes.length){box.appendChild(h('div',{class:'sec',text:'Notes'}));pl.notes.forEach(function(w){box.appendChild(h('div',{class:'note',text:w}))})}
+      box.appendChild(h('div',{class:'sec',text:'What you need for the board'}));
+      pl.items.forEach(function(w){box.appendChild(h('div',{class:'note',text:'- '+w}))});
+      var txt=bbText(pl);
+      box.appendChild(h('div',{class:'flex',style:'margin-top:12px'},[
+        h('button',{class:'btn',text:'Copy wiring',onclick:function(){copyText(txt)}}),
+        h('button',{class:'btn',text:'Download wiring.txt',onclick:function(){download('wiring.txt',txt+'\n','text/plain')}}),
+        h('button',{class:'btn',text:'Key',onclick:openKey})]));
+    }
+    draw();
+  });
+}
+regPart({id:'p_bb',title:'Breadboard',short:'Breadboard',cat:'proto',desc:'A solderless breadboard for parts that are not HATs. It wires them to the Pi for you and draws the result.',
+  ifaces:['Jumpers'],hosts:['zero2','pi5'],why:{esp:'The ESP32-S3 round LCD board has no 40-pin header. Wire parts to its free GPIO instead.'},claims:[],
+  needs:[{t:'Half-size breadboard (400 tie points) and jumper wires: male-to-female for the Pi header, male-to-male on the board',ok:0}],
+  libs:[],recipes:['Add sensors without a HAT','Share I2C between several sensors','Wire a button and a PIR to spare GPIO']});
+TY.p_bb.body=bbBody;TY.p_bb.upd=bbUpd;TY.p_bb.sink=false;
+
+/* ---------- PDF guide: a small offline PDF writer ---------- */
+function pdfBuild(title){
+  var PW=612,PH=792,M=54,CW=PW-2*M;
+  var D={pages:[],cur:null,y:0,toc:[]};
+  var FN={reg:'/F1',bold:'/F2',mono:'/F3',monob:'/F4'};
+  var MAPCH={'’':"'",'‘':"'",'“':'"','”':'"','–':'-','—':'-','…':'...','→':'->','←':'<-',' ':' ','•':'-','≤':'<=','≥':'>=','µ':'u'};
+  function f(n){return String(Math.round(n*100)/100)}
+  function esc(s){
+    var o='';s=String(s);
+    for(var i=0;i<s.length;i++){
+      var ch=s[i],c=s.charCodeAt(i);
+      if(c===92||c===40||c===41)o+='\\'+ch;
+      else if(c>=32&&c<=126)o+=ch;
+      else if(c===9)o+='    ';
+      else if(c===0xB0||c===0xB7||c===0xD7||c===0xAB||c===0xBB)o+='\\'+('000'+c.toString(8)).slice(-3);
+      else o+=MAPCH[ch]||'?';
+    }
+    return o;
+  }
+  function rgb(c){c=c.replace('#','');return[parseInt(c.substr(0,2),16)/255,parseInt(c.substr(2,2),16)/255,parseInt(c.substr(4,2),16)/255].map(function(v){return f(v)}).join(' ')}
+  function np(){D.cur={ops:[]};D.pages.push(D.cur);D.y=PH-M;return D.cur}
+  function T(font,size,x,y,str,color){D.cur.ops.push('BT '+rgb(color||'#222222')+' rg '+FN[font]+' '+size+' Tf '+f(x)+' '+f(y)+' Td ('+esc(str)+') Tj ET')}
+  function TR(font,size,x,y,str,color,deg){var a=deg*Math.PI/180,c=Math.cos(a),s=Math.sin(a);D.cur.ops.push('BT '+rgb(color||'#222222')+' rg '+FN[font]+' '+size+' Tf '+f(c)+' '+f(s)+' '+f(-s)+' '+f(c)+' '+f(x)+' '+f(y)+' Tm ('+esc(str)+') Tj ET')}
+  function RECT(x,y,w,h,fill,stroke,lw){var o='';if(fill)o+=rgb(fill)+' rg ';if(stroke)o+=rgb(stroke)+' RG '+f(lw||1)+' w ';o+=f(x)+' '+f(y)+' '+f(w)+' '+f(h)+' re '+(fill&&stroke?'B':fill?'f':'S');D.cur.ops.push(o)}
+  function wrap(str,maxW,size,bold){
+    var cw=size*(bold?0.58:0.52),max=Math.max(8,Math.floor(maxW/cw)),out=[];
+    String(str).split('\n').forEach(function(par){
+      var words=par.split(' '),line='';
+      words.forEach(function(w){
+        while(w.length>max){if(line){out.push(line);line=''}out.push(w.slice(0,max));w=w.slice(max)}
+        if((line+' '+w).trim().length>max){out.push(line);line=w}else line=(line?line+' ':'')+w;
+      });
+      out.push(line);
+    });
+    return out;
+  }
+  function need(h){if(D.y-h<M+16)np()}
+  var api={};
+  api.page=function(){np()};
+  api.title=function(str,reg){ /* new page with a heading, optionally listed in the contents */
+    np();if(reg!==false)D.toc.push({t:str,pg:D.cur,lv:reg==='sub'?1:0});
+    RECT(M,D.y-30,CW,30,'#D85A30');T('bold',15,M+10,D.y-21,str,'#FFFFFF');D.y-=48;
+  };
+  api.h2=function(str){need(40);D.y-=10;T('bold',12.5,M,D.y-12,str,'#222222');D.y-=22};
+  api.h3=function(str){need(30);D.y-=4;T('bold',10.5,M,D.y-10,str,'#444444');D.y-=17};
+  api.p=function(str,o){
+    o=o||{};var size=o.size||10,ind=o.indent||0,col=o.color||'#222222';
+    wrap(str,CW-ind,size,false).forEach(function(l){need(size*1.5);D.y-=size*1.45;T('reg',size,M+ind,D.y,l,col)});
+    D.y-=o.gap===undefined?4:o.gap;
+  };
+  api.steps=function(list){
+    list.forEach(function(s,i){
+      var lines=wrap(s,CW-22,10,false);need(lines.length*14.5+4);
+      D.y-=14.5;T('bold',10,M+2,D.y,(i+1)+'.','#D85A30');T('reg',10,M+22,D.y,lines[0]);
+      for(var k=1;k<lines.length;k++){D.y-=14.5;T('reg',10,M+22,D.y,lines[k])}
+      D.y-=3;
+    });
+  };
+  api.bullets=function(list){
+    list.forEach(function(s){
+      var lines=wrap(s,CW-16,10,false);need(lines.length*14.5+2);
+      D.y-=14.5;T('bold',10,M+2,D.y,'-','#D85A30');T('reg',10,M+16,D.y,lines[0]);
+      for(var k=1;k<lines.length;k++){D.y-=14.5;T('reg',10,M+16,D.y,lines[k])}
+      D.y-=2;
+    });
+  };
+  api.cmd=function(lines,o){
+    var size=9,cw=size*0.6,max=Math.floor((CW-16)/cw),rows=[];
+    lines.forEach(function(l){
+      l=String(l).replace(/\t/g,'    ');
+      if(l.length<=max)rows.push({t:l,c:0});
+      else{
+        var cut=l.lastIndexOf(' ',max);if(cut<max*0.5)cut=max;
+        rows.push({t:l.slice(0,cut),c:0});var rest=l.slice(cut).replace(/^ /,'');
+        while(rest.length){var m2=max-2,c2=rest.length<=m2?rest.length:rest.lastIndexOf(' ',m2);if(c2<m2*0.5)c2=m2;rows.push({t:rest.slice(0,c2),c:1});rest=rest.slice(c2).replace(/^ /,'')}
+      }
+    });
+    D.y-=3;
+    rows.forEach(function(r){
+      need(size*1.5);
+      RECT(M,D.y-size*1.5,CW,size*1.5,'#F1EEE7');
+      D.y-=size*1.3;T('mono',size,M+8+(r.c?cw*2:0),D.y,(r.c?'':'')+r.t,'#1F1F1D');D.y-=size*0.2;
+    });
+    D.y-=7;
+  };
+  api.code=function(lines,head){
+    var size=7.8,cw=size*0.6,max=Math.floor((CW-14)/cw),lh=size*1.32;
+    function top(){RECT(M,D.y-lh*0+2,CW,0.01,null,null)}
+    var first=true;
+    lines.forEach(function(l){
+      l=String(l).replace(/\t/g,'    ');
+      var segs=[];if(l.length<=max)segs.push({t:l,c:0});else{segs.push({t:l.slice(0,max),c:0});var rest=l.slice(max);while(rest.length){segs.push({t:rest.slice(0,max-4),c:1});rest=rest.slice(max-4)}}
+      segs.forEach(function(sg){
+        if(D.y-lh<M+16){np();T('reg',8,M,D.y-8,head+' (continued)','#777777');D.y-=18}
+        RECT(M,D.y-lh,CW,lh,sg.c?'#EDE9DF':'#F6F4EF');
+        D.y-=lh*0.8;
+        if(sg.c)T('mono',size,M+5,D.y,'»','#D85A30');
+        T('mono',size,M+7+(sg.c?cw*4:0),D.y,sg.t,'#1F1F1D');
+        D.y-=lh*0.2;
+      });
+    });
+    D.y-=8;
+  };
+  /* a scene from bbScene() */
+  api.scene=function(sc,maxW){
+    var k=Math.min(1,(maxW||CW)/sc.w),h=sc.h*k;
+    need(h+8);
+    var ox=M,oy=D.y;
+    function X(x){return ox+x*k}function Y(y){return oy-y*k}
+    sc.items.forEach(function(it){
+      if(it.t==='rect'){var o='';if(it.fill)o+=rgb(it.fill)+' rg ';if(it.stroke)o+=rgb(it.stroke)+' RG 0.8 w ';o+=f(X(it.x))+' '+f(Y(it.y+it.h))+' '+f(it.w*k)+' '+f(it.h*k)+' re '+(it.fill&&it.stroke?'B':it.fill?'f':'S');D.cur.ops.push(o)}
+      else if(it.t==='circle'){var cx=X(it.x),cy=Y(it.y),r=it.r*k,q=0.5523*r,o2='';if(it.fill)o2+=rgb(it.fill)+' rg ';if(it.stroke)o2+=rgb(it.stroke)+' RG 0.6 w ';
+        o2+=f(cx+r)+' '+f(cy)+' m '+f(cx+r)+' '+f(cy+q)+' '+f(cx+q)+' '+f(cy+r)+' '+f(cx)+' '+f(cy+r)+' c '+f(cx-q)+' '+f(cy+r)+' '+f(cx-r)+' '+f(cy+q)+' '+f(cx-r)+' '+f(cy)+' c '+f(cx-r)+' '+f(cy-q)+' '+f(cx-q)+' '+f(cy-r)+' '+f(cx)+' '+f(cy-r)+' c '+f(cx+q)+' '+f(cy-r)+' '+f(cx+r)+' '+f(cy-q)+' '+f(cx+r)+' '+f(cy)+' c '+(it.fill&&it.stroke?'B':it.fill?'f':'S');D.cur.ops.push(o2)}
+      else if(it.t==='line')D.cur.ops.push(rgb(it.stroke)+' RG '+f(it.w*k)+' w 1 J '+f(X(it.x1))+' '+f(Y(it.y1))+' m '+f(X(it.x2))+' '+f(Y(it.y2))+' l S');
+      else if(it.t==='path'){var o3=rgb(it.stroke)+' RG '+f(it.w*k)+' w 1 J 1 j ';it.d.forEach(function(sg){if(sg[0]==='M')o3+=f(X(sg[1]))+' '+f(Y(sg[2]))+' m ';else if(sg[0]==='L')o3+=f(X(sg[1]))+' '+f(Y(sg[2]))+' l ';else o3+=f(X(sg[1]))+' '+f(Y(sg[2]))+' '+f(X(sg[3]))+' '+f(Y(sg[4]))+' '+f(X(sg[5]))+' '+f(Y(sg[6]))+' c '});D.cur.ops.push(o3+'S')}
+      else if(it.t==='text'){
+        var sz=Math.max(4,it.s*k),w=it.str.length*sz*0.52,x=X(it.x),y=Y(it.y);
+        if(it.anchor==='middle')x-=w/2;else if(it.anchor==='end')x-=w;
+        if(it.rot)TR(it.b?'bold':'reg',sz,X(it.x),Y(it.y),it.str,it.fill,-it.rot);else T(it.b?'bold':'reg',sz,x,y,it.str,it.fill);
+      }
+    });
+    D.y-=h+8;
+  };
+  /* legend drawn with plain shapes */
+  api.legend=function(keys){
+    need(keys.length*17/2+30);
+    var colW=CW/2,y0=D.y,i=0;
+    keys.forEach(function(k){
+      var c=CONN[k],col=k==='gnd'?'#2F2F2F':c.color,x=M+(i%2)*colW,y=y0-Math.floor(i/2)*18-12;
+      if(c.shape==='sq')RECT(x,y-1,8,8,col);
+      else if(c.shape==='dia'){D.cur.ops.push(rgb(col)+' rg '+f(x+4)+' '+f(y+8)+' m '+f(x+8)+' '+f(y+4)+' l '+f(x+4)+' '+f(y)+' l '+f(x)+' '+f(y+4)+' l f')}
+      else if(c.shape==='tri'){D.cur.ops.push(rgb(col)+' rg '+f(x+4)+' '+f(y+8)+' m '+f(x+8)+' '+f(y)+' l '+f(x)+' '+f(y)+' l f')}
+      else if(c.shape==='bar'||c.shape==='hat'||c.shape==='usb')RECT(x,y+1,13,5,col);
+      else if(c.shape==='ring'){D.cur.ops.push(rgb(col)+' RG 2 w '+f(x+8)+' '+f(y+4)+' m '+f(x+8)+' '+f(y+6.2)+' '+f(x+6.2)+' '+f(y+8)+' '+f(x+4)+' '+f(y+8)+' c '+f(x+1.8)+' '+f(y+8)+' '+f(x)+' '+f(y+6.2)+' '+f(x)+' '+f(y+4)+' c '+f(x)+' '+f(y+1.8)+' '+f(x+1.8)+' '+f(y)+' '+f(x+4)+' '+f(y)+' c '+f(x+6.2)+' '+f(y)+' '+f(x+8)+' '+f(y+1.8)+' '+f(x+8)+' '+f(y+4)+' c S')}
+      else RECT(x,y,8,8,col);
+      T('bold',8.5,x+17,y,c.label,'#222222');var wd=c.what.split('. ')[0];T('reg',7.5,x+17+c.label.length*5+8,y,wd.length>44?wd.slice(0,42)+'..':wd,'#666666');
+      i++;
+    });
+    D.y=y0-Math.ceil(keys.length/2)*18-6;
+  };
+  api.finish=function(front){
+    /* front page is built last so it can list page numbers */
+    var save=D.cur;np();var fp=D.cur;D.pages.pop();
+    front(fp,function(){return D.toc.map(function(e){return{t:e.t,n:D.pages.indexOf(e.pg)+2,lv:e.lv}})});
+    D.pages.unshift(fp);
+    var N=D.pages.length;
+    D.pages.forEach(function(pg,i){
+      D.cur=pg;if(i===0)return;
+      T('reg',8,M,28,title+'  |  Setup guide','#888888');
+      var lab='Page '+(i+1)+' of '+N;T('reg',8,PW-M-lab.length*4.2,28,lab,'#888888');
+    });
+    var bodies=['<< /Type /Catalog /Pages 2 0 R >>','',
+      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+      '<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>',
+      '<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >>'];
+    var kids=[];
+    D.pages.forEach(function(pg,i){
+      var content=pg.ops.join('\n'),cid=bodies.length+1;
+      bodies.push('<< /Length '+content.length+' >>\nstream\n'+content+'\nendstream');
+      kids.push((bodies.length+1)+' 0 R');
+      bodies.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+PW+' '+PH+'] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R >> >> /Contents '+cid+' 0 R >>');
+    });
+    bodies[1]='<< /Type /Pages /Kids ['+kids.join(' ')+'] /Count '+kids.length+' >>';
+    bodies.push('<< /Title ('+esc(title+' setup guide')+') /Producer (Makers sandbox) >>');
+    var out='%PDF-1.4\n%âãÏÓ\n',offs=[];
+    bodies.forEach(function(b,i){offs.push(out.length);out+=(i+1)+' 0 obj\n'+b+'\nendobj\n'});
+    var xr=out.length;
+    out+='xref\n0 '+(bodies.length+1)+'\n0000000000 65535 f \n';
+    offs.forEach(function(o){out+=('0000000000'+o).slice(-10)+' 00000 n \n'});
+    out+='trailer\n<< /Size '+(bodies.length+1)+' /Root 1 0 R /Info '+bodies.length+' 0 R >>\nstartxref\n'+xr+'\n%%EOF';
+    var u8=new Uint8Array(out.length);for(var i=0;i<out.length;i++)u8[i]=out.charCodeAt(i)&255;
+    return{bytes:u8,pages:N};
+  };
+  api.D=D;api.T=T;api.RECT=RECT;api.wrap=wrap;api.M=M;api.PW=PW;api.PH=PH;api.CW=CW;
+  return api;
+}
+
+/* ---------- the guide itself ---------- */
+function mountKind(n){
+  var A=ADDONS[n.type];
+  if(n.type==='p_bb')return'Solderless breadboard';
+  if(IS_HAT[n.type])return'Sits on the 40-pin header';
+  var bb=bbFor(n);if(bb)return'Wired on the breadboard (see the wiring table)';
+  var f=A.ifaces||[];
+  if(f.indexOf('CSI')>=0)return'Camera ribbon cable';
+  if(f.indexOf('DSI')>=0)return'Display ribbon cable';
+  if(f.indexOf('USB')>=0)return'USB port';
+  return'Wired to the header pins';
+}
+function guideHost(pdf,hn,multi,state){
+  var T=HOSTS[hn.type],pre=multi?T.short+' #'+hn.id+': ':'';
+  var parts=mountedOn(hn.id),pf=projectFiles(hn);
+  var names=pf.map(function(x){return x.file});
+  var scp=names.filter(function(x){return x!=='get-photos.sh'});
+  var has=function(f){return names.indexOf(f)>=0};
+  var ifs={};parts.forEach(function(p){(ADDONS[p.type].ifaces||[]).forEach(function(f){ifs[f]=1})});
+  var cams=parts.filter(function(p){return (ADDONS[p.type].ifaces||[]).indexOf('CSI')>=0});
+  var bbs=P.nodes.filter(function(x){return x.type==='p_bb'&&x.props.mount===hn.id});
+  var secs=conSections().filter(function(s){return s.name.indexOf(multi?T.short+' #'+hn.id+' / ':'')===0});
+  /* 1. project */
+  pdf.title(pre+'Your project');
+  pdf.p('This guide takes "'+P.name+'" from parts on a table to a running '+T.title+'. Part 1 is the walkthrough. Part 2 has every script, one per page, ready to copy. Work through the walkthrough in order and test one part at a time.');
+  pdf.h2('Parts');
+  if(!parts.length)pdf.p('No parts are mounted on this '+T.title+' yet.');
+  parts.forEach(function(p){
+    var A=ADDONS[p.type];
+    pdf.p(A.title+'   -   '+mountKind(p),{indent:8,gap:1});
+  });
+  pdf.h2('Connection key');
+  pdf.legend(['v33','v5','gnd','i2c','spi','uart','gpio','pwm','csi','usb','hat']);
+  pdf.p('The same colors and shapes are used in the app and in the drawings in this guide.',{size:9,color:'#666666'});
+  pdf.h2('A note on the code');
+  pdf.p('The scripts use vendor libraries (Picamera2, gpiozero, luma.oled, the Waveshare drivers and others). They were written from memory and have not been verified on real hardware, so check names and settings against each library\'s own documentation. Test one part at a time.');
+  /* 2. ready */
+  pdf.title(pre+'1. Get ready');
+  pdf.h2('You will need');
+  var need=['A microSD card, 16 GB or larger','A power supply for the '+T.title+(hn.type==='pi5'?' (the official 27 W USB-C supply is recommended)':' (5 V, 2.5 A, micro-USB)'),'A computer with Wi-Fi, to flash the card and to connect to the Pi','Your Wi-Fi name and password'];
+  parts.forEach(function(p){need.push(ADDONS[p.type].title)});
+  pdf.bullets(need);
+  var nd=[];
+  parts.forEach(function(p){(ADDONS[p.type].needs||[]).forEach(function(x){if(!/cable|separately|solder|divider|resistor|^Needs/i.test(x.t))return;if(x.host&&x.host.indexOf(hn.type)<0)return;if(nd.indexOf(x.t)<0)nd.push(x.t)})});
+  if(nd.length){pdf.h2('Check these');pdf.bullets(nd)}
+  bbs.forEach(function(bb){var pl=bbPlan(bb);if(pl.parts.length){pdf.h2('For the breadboard');pdf.bullets(pl.items)}});
+  /* 3. flash */
+  pdf.title(pre+'2. Flash the SD card');
+  pdf.steps(['On your computer, install Raspberry Pi Imager from raspberrypi.com/software and open it.',
+    'Choose the device: '+T.title+'.',
+    'Choose the operating system: Raspberry Pi OS (64-bit). The Lite version has no desktop and is fine for this project. Pick the full version if you want to plug in a screen and mouse.',
+    'Choose your SD card.',
+    'Open the settings (the Edit Settings or gear button). Set a hostname, a username and password, your Wi-Fi name and password, and turn on SSH. Menu names change between Imager versions.',
+    'Write the card. Put it in the Pi and connect power. The first start takes a few minutes.']);
+  if(hn.type==='zero2')pdf.p('The Zero 2 connects to 2.4 GHz Wi-Fi only.',{size:9,color:'#666666'});
+  /* 4. connect */
+  pdf.title(pre+'3. Connect to the Pi');
+  pdf.p('On your computer, open a terminal (Terminal on Mac and Linux, PowerShell on Windows). Replace the user name and host name with the ones you chose in the Imager.');
+  pdf.cmd(['ssh USERNAME@HOSTNAME.local']);
+  pdf.p('If that cannot find the Pi, look up its address in your router and use it in place of HOSTNAME.local. Once you are in, bring the system up to date:');
+  pdf.cmd(['sudo apt update','sudo apt full-upgrade -y','sudo reboot']);
+  pdf.p('Wait a minute, then connect again.');
+  /* 5. hardware */
+  pdf.title(pre+'4. Connect the hardware');
+  pdf.p('Always shut the Pi down and unplug it before you connect anything:');
+  pdf.cmd(['sudo shutdown -h now']);
+  pdf.p('Wait until the green light stops flashing, then unplug the power.');
+  var hats=parts.filter(function(p){return IS_HAT[p.type]}),rib=parts.filter(function(p){var f=ADDONS[p.type].ifaces||[];return f.indexOf('CSI')>=0||f.indexOf('DSI')>=0}),usb=parts.filter(function(p){return (ADDONS[p.type].ifaces||[]).indexOf('USB')>=0});
+  if(hats.length){pdf.h2('HATs and boards that sit on the header');pdf.p('Line the board up with the 40-pin header (pin 1 is the corner nearest the SD card slot) and press down evenly. Do not force it. '+hats.map(function(p){return ADDONS[p.type].title}).join(', ')+'.')}
+  if(rib.length){pdf.h2('Ribbon cables');pdf.p('Lift the plastic latch on the port, slide the ribbon in so its contacts meet the port\'s metal contacts (it only goes in one way), then press the latch closed. On a Zero the camera cable is narrower than the standard one. '+rib.map(function(p){return ADDONS[p.type].title}).join(', ')+'.')}
+  if(usb.length){pdf.h2('USB');pdf.p('Plug in '+usb.map(function(p){return ADDONS[p.type].title}).join(', ')+'.')}
+  bbs.forEach(function(bb){
+    var pl=bbPlan(bb);if(!pl.parts.length)return;
+    pdf.title(pre+'4b. Breadboard wiring');
+    pdf.p('The drawing is a simplified schematic. Pin order on real modules varies, so match each wire by its pin label, not by position.');
+    pdf.scene(bbScene(pl));
+    pdf.h3('Wiring table');
+    var wc=0;pl.table.forEach(function(r){wc=Math.max(wc,r.from.length)});
+    pdf.cmd(pl.table.map(function(r){return(r.from+'                                        ').slice(0,wc+2)+'-> '+r.to+'  ['+CONN[r.conn].label+']'}));
+    if(pl.warn.length){pdf.h3('Check these before powering on');pdf.bullets(pl.warn)}
+    if(pl.notes.length){pdf.h3('Notes');pdf.bullets(pl.notes)}
+  });
+  /* 6. copy */
+  pdf.title(pre+'5. Copy the files to the Pi');
+  pdf.p('Save the scripts from Part 2 into one folder on your computer. Each page says what to name the file. '+(multi?'Keep each Pi\'s files in their own folder and use the plain file names shown. ':'')+'On the Pi, make a folder for the project:');
+  pdf.cmd(['mkdir -p ~/project']);
+  pdf.p('Then, on your computer, from the folder that holds the files:');
+  pdf.cmd(['scp '+scp.join(' ')+' USERNAME@HOSTNAME.local:project/']);
+  pdf.p('Files: '+scp.join(', ')+'.',{size:9,color:'#666666'});
+  /* 7. setup */
+  pdf.title(pre+'6. Run setup.sh');
+  pdf.p('setup.sh turns on the interfaces your parts need ('+(Object.keys(ifs).filter(function(k){return k==='I2C'||k==='SPI'||k==='UART'}).join(', ')||'none beyond the defaults')+') and installs the libraries. It can take several minutes. Run it once on the Pi:');
+  pdf.cmd(['cd ~/project','chmod +x setup.sh','./setup.sh','sudo reboot']);
+  pdf.p('If it stops with an error, read the last lines and fix what it names. It is usually safe to run again. If setup.sh created a Python environment at ~/sandbox-env, use ~/sandbox-env/bin/python3 wherever this guide says python3.');
+  /* 8. test */
+  pdf.title(pre+'7. Test each part on its own');
+  pdf.p('Test parts one at a time so a problem is easy to find. Stop any script with Ctrl+C.');
+  var tst=[];
+  if(ifs.I2C){pdf.h2('I2C devices');pdf.cmd(['sudo apt install -y i2c-tools','i2cdetect -y 1']);var ad=[];parts.forEach(function(p){var A=ADDONS[p.type];if(A.addr)ad.push(A.short+' '+A.addr.join(' or '))});pdf.p('Each I2C part should show up as an address in the table'+(ad.length?': '+ad.join(', ')+'.':'.'))}
+  if(cams.length||ifs.CSI){pdf.h2('Camera');pdf.cmd(['rpicam-hello --list-cameras','rpicam-still -o test.jpg']);pdf.p('The first command should list the camera. The second takes a picture.')}
+  secs.forEach(function(s){
+    if(!/#\d+$/.test(s.name.replace(/^.* \/ /,''))&&s.name.indexOf('#')<0)return;
+    var init=s.tabs.filter(function(t){return /Init/i.test(t.label)})[0],rend=s.tabs.filter(function(t){return /Render/i.test(t.label)})[0];
+    if(!rend)return;
+    pdf.h2(s.name.replace(/^.* \/ /,'')+' screen');
+    var lines=[];if(init)lines.push('python3 '+init.dl.replace(/^pi\d+-/,''));lines.push('python3 '+rend.dl.replace(/^pi\d+-/,''));
+    pdf.cmd(lines);pdf.p((init?'The first command wipes the panel. ':'')+'The second draws your layout once.');
+  });
+  if(has('controls.py')){pdf.h2('Buttons and sensors');pdf.cmd(['python3 controls.py']);pdf.p('Press each button and trigger each sensor. Each action prints a line or does its job. If an action does nothing, check that wire first.')}
+  /* 9. run */
+  pdf.title(pre+'8. Run the whole project');
+  pdf.p('When every part works on its own, start everything together:');
+  pdf.cmd(['cd ~/project','python3 main.py']);
+  pdf.p('main.py starts the other scripts and restarts any that stop. Press Ctrl+C to stop it.');
+  pdf.h2('Start on every boot');
+  pdf.cmd(['bash install-service.sh']);
+  pdf.p('This installs a service called sandbox-project. To stop it from starting at boot:');
+  pdf.cmd(['sudo systemctl disable --now sandbox-project.service']);
+  pdf.p('To watch what it prints:');
+  pdf.cmd(['journalctl -u sandbox-project.service -f']);
+  if(has('mock_camera.py')){
+    pdf.h2('Try it on your computer first (no Pi needed)');
+    pdf.p('mock_camera.py fakes the camera and the buttons, so you can check the logic before you have the hardware. On your computer, with the scripts in one folder:');
+    pdf.cmd(['pip install gpiozero pillow','SANDBOX_MOCK=1 python3 controls.py']);
+    pdf.p('Type a GPIO number and press Enter to press that button. "hold 17 3" holds GPIO 17 for 3 seconds. Test pictures are written into your photo folder. Windows PowerShell sets the variable differently: $env:SANDBOX_MOCK = "1" first.');
+  }
+  if(has('get-photos.sh')){
+    pdf.h2('Copy photos to your computer');
+    pdf.p('Open get-photos.sh on your computer, fill in the settings at the top (the Pi\'s user name and host name), then run it:');
+    pdf.cmd(['bash get-photos.sh']);
+  }
+  /* 10. trouble */
+  pdf.title(pre+'9. If something does not work');
+  pdf.bullets(['Nothing happens or "permission denied" on a pin: run the script as your normal user (not sudo) and check you are in the gpio group with: groups',
+    'A pin or device "is busy": another script already holds it. Only one script can open a pin at a time. Stop the other one (or the autostart service) and try again.',
+    'I2C part not listed by i2cdetect: check power and the SDA and SCL wires, check I2C is on (sudo raspi-config nonint do_i2c 0, then reboot), and try swapping a jumper.',
+    'Screen stays blank: confirm SPI or I2C is on, the HAT is seated all the way, and the part\'s own demo from the maker runs first.',
+    'Camera not found: reseat the ribbon, make sure it is the right cable for the board, and run rpicam-hello --list-cameras.',
+    'Library import errors: run setup.sh again, and use ~/sandbox-env/bin/python3 if that environment exists.',
+    'Unsure which pin is which: open the Pin map in the app. Every pin is colored by its connection type.']);
+}
+function buildGuidePdf(){
+  var hosts=piHosts();
+  var pdf=pdfBuild(P.name),multi=hosts.length>1;
+  hosts.forEach(function(hn){guideHost(pdf,hn,multi,{})});
+  /* part 2: code, one page per file */
+  var secs=conSections();
+  pdf.title('Part 2: the scripts',true);
+  pdf.p('Every script has its own page. Save each one with the file name shown, in the folder from the walkthrough. Long lines wrap and the wrapped part is marked with a » sign.');
+  secs.forEach(function(sec){
+    sec.tabs.forEach(function(t){
+      var name=sec.name+' / '+t.label;
+      pdf.title(t.label==='main.py'||true?name:name,'sub');
+      pdf.p('Save as: '+t.dl.replace(/^pi\d+-/,''),{size:9.5,color:'#D85A30',gap:2});
+      if(t.note)pdf.p(t.note,{size:9,color:'#555555',gap:6});
+      pdf.code(String(t.code).split('\n'),name);
+    });
+    if(sec.msg&&!sec.tabs.length){pdf.title(sec.name,'sub');pdf.p(sec.msg)}
+  });
+  var info={host:hosts.map(function(x){return HOSTS[x.type].title}).join(', ')};
+  var res=pdf.finish(function(fp,tocFn){
+    var D=pdf.D;D.cur=fp;D.y=pdf.PH-pdf.M;
+    pdf.RECT(0,pdf.PH-170,pdf.PW,170,'#D85A30');
+    pdf.T('bold',26,pdf.M,pdf.PH-80,P.name,'#FFFFFF');
+    pdf.T('reg',13,pdf.M,pdf.PH-108,'Setup guide and code',  '#FFFFFF');
+    pdf.T('reg',10,pdf.M,pdf.PH-134,'For: '+info.host+'   |   Made with the Makers sandbox',  '#FFFFFF');
+    D.y=pdf.PH-200;
+    pdf.T('bold',12.5,pdf.M,D.y,'Contents','#222222');D.y-=18;
+    var list=tocFn(),max=44;
+    list.slice(0,max).forEach(function(e){
+      var ind=e.lv?14:0;
+      pdf.T(e.lv?'reg':'bold',e.lv?9:9.5,pdf.M+ind,D.y,e.t.length>74?e.t.slice(0,72)+'..':e.t,'#222222');
+      var num=String(e.n);pdf.T('reg',9.5,pdf.PW-pdf.M-num.length*5.2,D.y,num,'#555555');
+      D.y-=e.lv?12.5:14;
+    });
+    if(list.length>max)pdf.T('reg',9,pdf.M,D.y,'... and '+(list.length-max)+' more pages','#666666');
+  });
+  return res;
+}
+function downloadGuidePdf(){
+  if(!P||!piHosts().length){toast('Add a Pi to the canvas first');return}
+  var res;
+  try{res=buildGuidePdf()}catch(e){toast('Could not build the PDF: '+e.message);return}
+  var bl=new Blob([res.bytes],{type:'application/pdf'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(bl);a.download=slug(P.name)+'-setup-guide.pdf';document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},800);
+  toast('PDF saved ('+res.pages+' pages)');
+}
+
 /* ---------- safe svg ---------- */
 var SVGNS='http://www.w3.org/2000/svg';
 var OKT={g:1,path:1,circle:1,ellipse:1,rect:1,line:1,polyline:1,polygon:1,text:1,tspan:1};
@@ -1254,7 +2006,7 @@ function load(){
   var raw=null;try{raw=localStorage.getItem(KEY)}catch(e){}
   if(raw){try{var o=JSON.parse(raw);if(o&&o.projects&&o.projects.length){S={cur:o.cur,projects:o.projects.map(hydrate)};return}}catch(e){}}
   S={cur:null,projects:[]};
-  var p=seed();hydrate(p);S.projects.push(p);S.cur=p.id;
+  var p=hydrate({id:'p'+Date.now().toString(36),name:'Untitled',nodes:[],wires:[],seq:1,view:{x:30,y:30,k:.9}});S.projects.push(p);S.cur=p.id;
 }
 function setProject(id){
   var p=S.projects.filter(function(x){return x.id===id})[0]||S.projects[0];
@@ -1574,6 +2326,7 @@ function openPins(n){
     });
     if(!ad.length)lg.appendChild(h('span',{class:'note',text:'No add-ons mounted. Pins are free.'}));
     b.appendChild(lg);
+    var kl=h('div',{class:'cstrip'});['v33','v5','gnd','i2c','spi','uart','pwm','gpio'].forEach(function(k){kl.appendChild(connChip(k))});b.appendChild(kl);
     b.appendChild(h('div',{class:'note',text:'Pin numbers follow the physical header, odd pins on the left. GPIO assignments for each add-on come from the manufacturer demos, so confirm them against the datasheet.'}));
     var g=h('div',{class:'pins'});g.style.marginTop='12px';
     for(var r=0;r<20;r++)[2*r,2*r+1].forEach(function(i){
@@ -1583,7 +2336,8 @@ function openPins(n){
       else{var gp=parseInt(lbl,10);l1=(i+1)+'  GPIO'+gp+(ALT[gp]?' '+ALT[gp]:'');
         var c=claim[gp];
         if(c){cls+=' cl';l2=c.map(function(x){return x.s+' '+x.r}).join(' + ')}}
-      var cell=h('div',{class:cls},[h('span',{text:l1}),h('small',{text:l2})]);
+      var ck=lbl==='3V3'?'v33':lbl==='5V'?'v5':lbl==='GND'?'gnd':(function(){var a=ALT[parseInt(lbl,10)]||'';return /SDA|SCL/.test(a)?'i2c':/MOSI|MISO|SCLK|CE/.test(a)?'spi':/TXD|RXD/.test(a)?'uart':/PWM/.test(a)?'pwm':/ID_/.test(a)?'hat':'gpio'})();
+      var cell=h('div',{class:cls,style:'border-left:5px solid '+(ck==='gnd'?'var(--gndc)':connColor(ck))},[h('span',{},[h('i',{class:'cs '+CONN[ck].shape,style:'--cc:'+(ck==='gnd'?'var(--gndc)':connColor(ck)),'aria-hidden':'true'}),' '+l1]),h('small',{text:l2})]);
       if(claim[parseInt(lbl,10)]&&!isNaN(parseInt(lbl,10)))cell.style.background=claim[parseInt(lbl,10)][0].col;
       g.appendChild(cell);
     });
@@ -1941,6 +2695,7 @@ function openMenu(){
     item('Project setup script',openProjectSetup);
     item('Next steps',openIdeas);
     item('Run the whole project',openRun);
+    item('Download PDF guide (whole project)',downloadGuidePdf);
     item('Starter projects',openStarters);
     item('Controls script',openControls);
     item('Delete this project',function(){
@@ -2354,6 +3109,7 @@ function conSections(){
     function pick(name){return pf.filter(function(f){return f.file===name})[0]}
     var keys=[['main.py','main'],['photolib.py','photolib'],['setup.sh','setup'],['install-service.sh','service'],['get-photos.sh','getphotos'],['mock_camera.py','mock']],proj=[];
     keys.forEach(function(k){var f=pick(k[0]);if(f)proj.push({id:'h'+hn.id+':'+k[1],label:f.file,dl:(hosts.length>1?'pi'+hn.id+'-':'')+f.file,code:f.code,note:f.note})});
+    P.nodes.filter(function(x){return x.type==='p_bb'&&x.props.mount===hn.id}).forEach(function(bbn){var pl=bbPlan(bbn);if(pl.parts.length)proj.push({id:'h'+hn.id+':wiring'+bbn.id,label:'wiring.txt',dl:(hosts.length>1?'pi'+hn.id+'-':'')+'wiring'+(bbn.id>0?'':'')+'.txt',code:bbText(pl),note:'Breadboard wiring for this Pi. Power off before wiring. Match wires by pin label.'})});
     secs.push({name:pre+'Project',tabs:proj});
     var c=pick('controls.py');
     if(c)secs.push({name:pre+'Controls',tabs:[{id:'h'+hn.id+':controls',label:'controls.py',dl:(hosts.length>1?'pi'+hn.id+'-':'')+'controls.py',code:c.code,note:c.note}]});
@@ -2422,6 +3178,7 @@ $('#conClose').addEventListener('click',closeConsole);
 /* ---------- wiring up the page ---------- */
 $('#btnAdd').addEventListener('click',openPalette);
 $('#btnFit').addEventListener('click',fitView);
+$('#btnKey').addEventListener('click',openKey);
 $('#btnUndo').addEventListener('click',undo);
 $('#btnRedo').addEventListener('click',redo);
 $('#btnMenu').addEventListener('click',openMenu);
@@ -2439,7 +3196,7 @@ P=S.projects.filter(function(p){return p.id===S.cur})[0]||S.projects[0];S.cur=P.
 projList();renderAll();commitNow();
 setTimeout(function(){if(S.projects.length&&P.name==='Welcome'&&!localStorage.getItem(KEY+'.fit')){fitView();try{localStorage.setItem(KEY+'.fit','1')}catch(e){}}},50);
 
-window.__sandbox={get P(){return P},ADDONS:ADDONS,setupLines:setupLines,openPart:openPart,openCatalog:openCatalog,openProjectSetup:openProjectSetup,openControls:openControls,openIdeas:openIdeas,libFor:libFor,genPhotoLib:genPhotoLib,openConsole:openConsole,renderConsole:renderConsole,conSections:conSections,CON:CON,openRun:openRun,openStarters:openStarters,projectFiles:projectFiles,startStarter:startStarter,STARTERS:STARTERS,claimsOf:claimsOf,ICON_DEFS:ICON_DEFS,ideas:ideas,genControls:genControls,actionOptions:actionOptions,libOn:libOn,TY:TY,refresh:refresh,fit:fit,genScripts:genScripts,cache:function(){return cache},simFire:simFire,MOCKSHOT:MOCKSHOT,addNode:addNode,select:select,setProject:setProject,newProject:newProject};
+window.__sandbox={get P(){return P},ADDONS:ADDONS,setupLines:setupLines,openPart:openPart,openCatalog:openCatalog,openProjectSetup:openProjectSetup,openControls:openControls,openIdeas:openIdeas,libFor:libFor,genPhotoLib:genPhotoLib,openConsole:openConsole,renderConsole:renderConsole,conSections:conSections,CON:CON,openRun:openRun,openStarters:openStarters,projectFiles:projectFiles,startStarter:startStarter,STARTERS:STARTERS,claimsOf:claimsOf,ICON_DEFS:ICON_DEFS,ideas:ideas,genControls:genControls,actionOptions:actionOptions,libOn:libOn,TY:TY,refresh:refresh,fit:fit,genScripts:genScripts,cache:function(){return cache},buildGuidePdf:buildGuidePdf,downloadGuidePdf:downloadGuidePdf,simFire:simFire,bbPlan:bbPlan,bbText:bbText,bbScene:bbScene,sceneSvg:sceneSvg,openBoard:openBoard,openKey:openKey,bbFor:bbFor,CONN:CONN,stripSpec:stripSpec,MOCKSHOT:MOCKSHOT,addNode:addNode,select:select,setProject:setProject,newProject:newProject};
 })();
 </script>
 </body>
