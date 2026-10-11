@@ -1659,9 +1659,11 @@ function pdfBuild(title){
   function need(h){if(D.y-h<M+16)np()}
   var api={};
   api.page=function(){np()};
-  api.title=function(str,reg){ /* new page with a heading, optionally listed in the contents */
-    np();if(reg!==false)D.toc.push({t:str,pg:D.cur,lv:reg==='sub'?1:0});
-    RECT(M,D.y-30,CW,30,'#000000');T('bold',15,M+10,D.y-21,str,'#FFFFFF');D.y-=48;
+  api.title=function(str,reg,fresh){ /* heading that flows on, optionally listed in the contents; fresh forces a new page */
+    var sub=reg==='sub',bh=sub?22:28;
+    if(fresh||!D.cur||D.y-bh-120<M)np();else D.y-=sub?10:18;
+    if(reg!==false)D.toc.push({t:str,pg:D.cur,lv:sub?1:0});
+    RECT(M,D.y-bh,CW,bh,'#000000');T('bold',sub?12:14,M+10,D.y-bh+(sub?7:9),str,'#FFFFFF');D.y-=bh+12;
   };
   api.h2=function(str){need(40);D.y-=10;T('bold',12.5,M,D.y-12,str,'#222222');D.y-=22};
   api.h3=function(str){need(30);D.y-=4;T('bold',10.5,M,D.y-10,str,'#444444');D.y-=17};
@@ -1812,7 +1814,7 @@ function mountKind(n){
   if(f.indexOf('USB')>=0)return'USB port';
   return'Wired to the header pins';
 }
-function pdfPinout(pdf,hn,pre){
+function pdfPinout(pdf,hn,pre,lab){
   var T=HOSTS[hn.type],ad=mountedOn(hn.id),claim={},rows=[];
   ad.forEach(function(a,ai){claimsOf(a).forEach(function(c){
     (claim[c.g]=claim[c.g]||[]).push({s:ADDONS[a.type].short,r:c.r,col:CLAIM_COLORS[ai%4]});
@@ -1820,12 +1822,12 @@ function pdfPinout(pdf,hn,pre){
     rows.push({g:c.g,pin:pi>=0?pi+1:0,t:ADDONS[a.type].short+' '+c.r});
   })});
   if(!T.pi){
-    pdf.title(pre+'GPIO pinout');
+    pdf.title(pre+lab+' GPIO pinout');
     pdf.p('The '+T.title+' has no 40-pin header. Parts are wired to any free GPIO, and the pins in use are listed here.');
     if(rows.length)pdf.cmd(rows.map(function(r){return('GPIO'+r.g+'        ').slice(0,9)+r.t}));else pdf.p('No parts are wired to this board yet.');
     return;
   }
-  pdf.title(pre+'GPIO pinout');
+  pdf.title(pre+lab+' GPIO pinout',undefined,true);
   pdf.p('The 40-pin header as you see it with pin 1 at the top left. Odd pin numbers are the left column and even the right. Colored stripes show the connection type, and a colored cell is a pin this project uses.',{size:9.5});
   var D=pdf.D,M=pdf.M,CW=pdf.CW,cw=(CW-14)/2,rh=24,top=D.y-4,k,gx;
   pdf.legend(['v33','v5','gnd','i2c','spi','uart','gpio','pwm']);
@@ -1852,15 +1854,17 @@ function guideHost(pdf,hn,multi,state){
   var T=HOSTS[hn.type],pre=multi?T.short+' #'+hn.id+': ':'';
   var parts=mountedOn(hn.id),pf=projectFiles(hn);
   var names=pf.map(function(x){return x.file});
-  var scp=names.filter(function(x){return x!=='get-photos.sh'});
   var has=function(f){return names.indexOf(f)>=0};
+  var secs0=conSections().filter(function(s){return s.name.indexOf(multi?T.short+' #'+hn.id+' / ':'')===0});
+  var scp=names.filter(function(x){return x!=='get-photos.sh'&&x!=='mock_camera.py'});
+  secs0.forEach(function(sc){sc.tabs.forEach(function(t){if(/Init|Render|My program/i.test(t.label)){var nm=t.dl.replace(/^pi\d+-/,'');if(scp.indexOf(nm)<0)scp.push(nm)}})});
   var ifs={};parts.forEach(function(p){(ADDONS[p.type].ifaces||[]).forEach(function(f){ifs[f]=1})});
   var cams=parts.filter(function(p){return (ADDONS[p.type].ifaces||[]).indexOf('CSI')>=0});
   var bbs=P.nodes.filter(function(x){return x.type==='p_bb'&&x.props.mount===hn.id});
   var secs=conSections().filter(function(s){return s.name.indexOf(multi?T.short+' #'+hn.id+' / ':'')===0});
   /* 1. project */
-  pdf.title(pre+'Your project');
-  pdf.p('This guide takes "'+P.name+'" from parts on a table to a running '+T.title+'. Part 1 is the walkthrough. Part 2 has every script, one per page, ready to copy. Work through the walkthrough in order and test one part at a time.');
+  pdf.title(pre+'Your project',undefined,true);
+  pdf.p('This guide takes "'+P.name+'" from parts on a table to a running '+T.title+'. Part 1 is the walkthrough. Part 2 has every script, ready to copy. Work through the walkthrough in order and test one part at a time.');
   pdf.h2('Parts');
   if(!parts.length)pdf.p('No parts are mounted on this '+T.title+' yet.');
   parts.forEach(function(p){
@@ -1902,12 +1906,12 @@ function guideHost(pdf,hn,multi,state){
   pdf.cmd(['sudo shutdown -h now']);
   pdf.p('Wait until the green light stops flashing, then unplug the power.');
   var hats=parts.filter(function(p){return IS_HAT[p.type]}),rib=parts.filter(function(p){var f=ADDONS[p.type].ifaces||[];return f.indexOf('CSI')>=0||f.indexOf('DSI')>=0}),usb=parts.filter(function(p){return (ADDONS[p.type].ifaces||[]).indexOf('USB')>=0});
-  if(hats.length){pdf.h2('HATs and boards that sit on the header');pdf.p('Line the board up with the 40-pin header (pin 1 is the corner nearest the SD card slot) and press down evenly. Do not force it. '+hats.map(function(p){return ADDONS[p.type].title}).join(', ')+'.')}
-  if(rib.length){pdf.h2('Ribbon cables');pdf.p('Lift the plastic latch on the port, slide the ribbon in so its contacts meet the port\'s metal contacts (it only goes in one way), then press the latch closed. On a Zero the camera cable is narrower than the standard one. '+rib.map(function(p){return ADDONS[p.type].title}).join(', ')+'.')}
+  if(hats.length){pdf.h2('HATs and boards that sit on the header');pdf.p('Line the board up with the 40-pin header (pin 1 is the corner nearest the SD card slot) and press down evenly. Do not force it. This applies to: '+hats.map(function(p){return ADDONS[p.type].title}).join(', ')+'.')}
+  if(rib.length){pdf.h2('Ribbon cables');pdf.p('Lift the plastic latch on the port, slide the ribbon in so its contacts meet the port\'s metal contacts (it only goes in one way), then press the latch closed. On a Zero the camera cable is narrower than the standard one. This applies to: '+rib.map(function(p){return ADDONS[p.type].title}).join(', ')+'.')}
   if(usb.length){pdf.h2('USB');pdf.p('Plug in '+usb.map(function(p){return ADDONS[p.type].title}).join(', ')+'.')}
   bbs.forEach(function(bb){
     var pl=bbPlan(bb);if(!pl.parts.length)return;
-    pdf.title(pre+'4b. Breadboard wiring');
+    pdf.title(pre+'4b. Breadboard wiring',undefined,true);
     pdf.p('The drawing is a simplified schematic. Pin order on real modules varies, so match each wire by its pin label, not by position.');
     pdf.scene(bbScene(pl));
     pdf.h3('Wiring table');
@@ -1922,13 +1926,13 @@ function guideHost(pdf,hn,multi,state){
     if(pl.warn.length){pdf.h3('Check these before powering on');pdf.bullets(pl.warn)}
     if(pl.notes.length){pdf.h3('Notes');pdf.bullets(pl.notes)}
   });
-  pdfPinout(pdf,hn,pre);
+  pdfPinout(pdf,hn,pre,bbs.some(function(bb){return bbPlan(bb).parts.length})?'4c.':'4b.');
   /* 6. copy */
   pdf.title(pre+'5. Copy the files to the Pi');
   pdf.p('Save the scripts from Part 2 into one folder on your computer. Each page says what to name the file. '+(multi?'Keep each Pi\'s files in their own folder and use the plain file names shown. ':'')+'On the Pi, make a folder for the project:');
   pdf.cmd(['mkdir -p ~/project']);
   pdf.p('Then, on your computer, from the folder that holds the files:');
-  pdf.cmd(['scp '+scp.join(' ')+' USERNAME@HOSTNAME.local:project/']);
+  pdf.cmd(scp.length>2?['scp \\'].concat(scp.map(function(f){return '    '+f+' \\'}),['    USERNAME@HOSTNAME.local:project/']):['scp '+scp.join(' ')+' USERNAME@HOSTNAME.local:project/']);
   pdf.p('Files: '+scp.join(', ')+'.',{size:9,color:'#666666'});
   /* 7. setup */
   pdf.title(pre+'6. Run setup.sh');
@@ -1988,16 +1992,16 @@ function buildGuidePdf(){
   var hosts=piHosts();
   var pdf=pdfBuild(P.name),multi=hosts.length>1;
   hosts.forEach(function(hn){guideHost(pdf,hn,multi,{})});
-  /* part 2: code, one page per file */
+  /* part 2: code */
   var secs=conSections();
-  pdf.title('Part 2: the scripts',true);
-  pdf.p('Every script has its own page. Save each one with the file name shown, in the folder from the walkthrough. Long lines wrap and the wrapped part is marked with a » sign.');
+  pdf.title('Part 2: the scripts',true,true);
+  pdf.p('Save each script with the file name shown, in the folder from the walkthrough. Long lines wrap and the wrapped part is marked with a » sign.');
   secs.forEach(function(sec){
     sec.tabs.forEach(function(t){
       var name=sec.name+' / '+t.label;
       pdf.title(t.label==='main.py'||true?name:name,'sub');
       pdf.p('Save as: '+t.dl.replace(/^pi\d+-/,''),{size:9.5,color:'#000000',gap:2});
-      if(t.note)pdf.p(t.note,{size:9,color:'#555555',gap:6});
+      if(t.note)pdf.p(t.note+(t.label==='Setup'?' Project setup.sh already includes this, so you only need it if you are setting up this one part on its own.':''),{size:9,color:'#555555',gap:6});
       pdf.code(String(t.code).split('\n'),name);
     });
     if(sec.msg&&!sec.tabs.length){pdf.title(sec.name,'sub');pdf.p(sec.msg)}
