@@ -52,6 +52,20 @@ button{cursor:pointer}
 .port.near{box-shadow:0 0 0 4px var(--text)}
 .dv{width:54px;height:20px;border:1px solid var(--line);border-radius:5px;background:var(--bg);padding:0 4px;font-size:11px}
 .row.wired .dv{display:none}
+.prow{display:flex;align-items:center;gap:4px}
+.pon{width:auto;margin:0}
+.pnm{width:68px;height:20px;border:1px solid var(--line);border-radius:5px;background:var(--bg);padding:0 4px;font-size:11px;font-family:var(--mono);color:var(--text)}
+.pmd{width:84px;height:20px;font-size:11px;padding:0 2px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--text)}
+.row.poff .pnm,.row.poff .pmd,.row.poff .ov{opacity:.4}
+.pcap{margin:6px 0 4px}
+.ipanel{border:1px solid var(--rule);padding:10px;margin-bottom:12px}
+.itab{width:100%;border-collapse:collapse;font-size:11px}
+.itab th{text-align:left;font-weight:700;color:var(--mut);padding:2px 4px}
+.itab td{padding:2px 4px}
+.itab input[type=text],.itab input[type=number],.itab select{height:22px;font-size:11px;width:100%;box-sizing:border-box}
+.itab select{min-width:92px}
+.ipanel a{color:var(--text);text-decoration:none}
+
 .nbody{padding:6px 10px 10px;display:flex;flex-direction:column;gap:6px}
 .nbody:empty{display:none}
 .nbody input[type=text],.nbody input[type=number],.nbody select,.nbody textarea{width:100%;border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:4px 6px;font-size:12px}
@@ -286,7 +300,7 @@ body.cdrag{user-select:none;cursor:col-resize}
 <aside id="con">
   <div id="conGrip" title="Drag to resize"></div>
   <button id="conRail" aria-label="Open console" title="Open console"><b>&#9666;</b><span>Console</span></button>
-  <div id="conPanel"><div id="conHead"><b>Console</b><button id="conClose" class="btn sm" aria-label="Collapse console">Collapse &#9656;</button></div><div id="conModes"><button class="cm on" data-m="scripts">Scripts</button><button class="cm" data-m="run">Run</button></div><div id="conBody"></div><div id="conRun"></div></div>
+  <div id="conPanel"><div id="conHead"><b>Console</b><button id="conClose" class="btn sm" aria-label="Collapse console">Collapse &#9656;</button></div><div id="conModes"><button class="cm on" data-m="scripts">Scripts</button><button class="cm" data-m="inputs">Inputs</button><button class="cm" data-m="run">Run</button></div><div id="conBody"></div><div id="conRun"></div></div>
 </aside>
 <div id="selbar"></div>
 </div>
@@ -560,23 +574,78 @@ def('eink',{sink:true,cat:'hw',title:'E-ink 2.13 V4',desc:'Add-on. Layout canvas
   ins:[{n:'in1',t:'any',d:'87'},{n:'in2',t:'any',d:'42'},{n:'in3',t:'any',d:''},{n:'invert',t:'bool',d:false}],outs:[{n:'width',t:'num'},{n:'height',t:'num'}],
   props:function(){return{mount:null,def:{},dsp:dspDefaults('eink')}},
   ev:function(){return[250,122]},body:dispBody,upd:dispUpd});
-def('lcd',{sink:true,cat:'hw',title:'LCD 1.44 HAT',desc:'Add-on. Color layout, joystick and keys.',w:220,
+def('lcd',{sink:true,cat:'hw',title:'LCD 1.44 HAT',desc:'Add-on. Color layout, joystick and keys.',w:360,
   ins:[{n:'in1',t:'any',d:'87'},{n:'in2',t:'any',d:''},{n:'in3',t:'any',d:''}],
-  outs:[{n:'up',t:'bool'},{n:'down',t:'bool'},{n:'left',t:'bool'},{n:'right',t:'bool'},{n:'press',t:'bool'},{n:'key1',t:'bool'},{n:'key2',t:'bool'},{n:'key3',t:'bool'}],
+  outs:[{n:'up',t:'bool'},{n:'down',t:'bool'},{n:'left',t:'bool'},{n:'right',t:'bool'},{n:'press',t:'bool'},{n:'key1',t:'bool'},{n:'key2',t:'bool'},{n:'key3',t:'bool'},{n:'direction',t:'num'}],
   props:function(){return{mount:null,def:{},dsp:dspDefaults('lcd')}},
-  ev:function(n){var k=n.rt.k||{};return['up','down','left','right','press','key1','key2','key3'].map(function(x){return !!k[x]})},
+  ev:function(n){
+    var I=inpOf(n),k=n.rt.k||{},kt=n.rt.kt||{},kr=n.rt.kr||{},now=performance.now(),held={},o=[];
+    PAD_IDS.forEach(function(id){var c=I.ctl[id];held[id]=!!(c.on&&(!!k[id]!==c.inv))});
+    PAD_IDS.forEach(function(id){
+      var c=I.ctl[id],tp=c.inv?kr[id]:kt[id],tr=c.inv?kt[id]:kr[id],v=false;
+      if(c.on){
+        if(c.mode==='pressed')v=tp!==undefined&&now-tp<PAD_WIN;
+        else if(c.mode==='released')v=tr!==undefined&&now-tr<PAD_WIN;
+        else if(c.mode==='long')v=held[id]&&now-(tp||0)>=c.hold*1000;
+        else v=held[id];
+      }
+      o.push(!!v);
+    });
+    var dn=0;for(var i=0;i<I.prio.length;i++){if(held[I.prio[i]]){dn=PAD_DIRN[I.prio[i]];break}}
+    o.push(dn);return o;
+  },
+  outLabel:function(n,i,po,rec,row){return padRow(n,i,po,rec,row)},
   body:function(n,b){
+    b.appendChild(h('div',{class:'note pcap'},[
+      'Tick the controls you use. Rename them, and pick when each one turns on. Wire from any dot, or use the names in your own code. ',
+      h('button',{class:'btn sm',text:'More settings',onclick:function(){openInputs()}})]));
     dispBody(n,b);
     b.appendChild(lab('Hold to simulate'));
     var g=h('div',{class:'two'});
-    ['up','down','left','right','press','key1','key2','key3'].forEach(function(k){
+    PAD_IDS.forEach(function(k){
       var bt=h('button',{class:'btn sm',text:k});
-      function on(){n.rt.k=n.rt.k||{};n.rt.k[k]=true;refresh()}function off(){if(n.rt.k&&n.rt.k[k]){n.rt.k[k]=false;refresh()}}
+      function on(){padSet(n,k,true,null)}function off(){padSet(n,k,false,null)}
       bt.addEventListener('pointerdown',on);bt.addEventListener('pointerup',off);bt.addEventListener('pointerleave',off);bt.addEventListener('pointercancel',off);
       g.appendChild(bt);
     });
     b.appendChild(g);
-  },upd:dispUpd});
+  },upd:function(n,el,ev){dispUpd(n,el,ev);padUpd(n,el)}});
+/* one output row of the HAT: use it, its name, and when it turns on */
+function padRow(n,i,po,rec,row){
+  var wrap=h('span',{class:'prow'});
+  if(i>=PAD_IDS.length){wrap.appendChild(h('span',{text:po.n,title:'0 none, 1 up, 2 down, 3 left, 4 right. The first of your direction order that is down wins'}));return wrap}
+  var id=PAD_IDS[i],c=inpOf(n).ctl[id];
+  var on=h('input',{type:'checkbox',class:'pon',title:'Use this control'});on.checked=c.on;
+  var nm=h('input',{type:'text',class:'pnm',spellcheck:'false',autocapitalize:'off',title:'Its name. Your code can use it'});nm.value=c.name;
+  var md=h('select',{class:'pmd',title:'When the output turns on'});
+  PAD_MODES.forEach(function(m){md.appendChild(h('option',{value:m[0],text:m[1]}))});md.value=c.mode;
+  on.addEventListener('change',function(){inpSet(n,id,'on',on.checked);touch(n)});
+  nm.addEventListener('change',function(){
+    var v=padName(n,id,nm.value);
+    if(v===null){toast('Another control already has that name');nm.value=inpOf(n).ctl[id].name;return}
+    nm.value=v;inpSet(n,id,'name',v===id?undefined:v);touch(n);
+  });
+  md.addEventListener('change',function(){inpSet(n,id,'mode',md.value);touch(n)});
+  [on,nm,md].forEach(function(e){wrap.appendChild(e)});
+  rec.pad={row:row,on:on,nm:nm,md:md,id:id};
+  return wrap;
+}
+function padUpd(n,el){
+  var I=inpOf(n);
+  el.rows.forEach(function(r){
+    if(!r.pad)return;var p=r.pad,c=I.ctl[p.id],act=padTaken(n,p.id);
+    if(document.activeElement!==p.on)p.on.checked=c.on;
+    if(document.activeElement!==p.nm)p.nm.value=c.name;
+    if(p.md.getAttribute('data-act')!==(act?'1':'0')){
+      p.md.setAttribute('data-act',act?'1':'0');p.md.innerHTML='';
+      if(act){p.md.appendChild(h('option',{value:'action',text:'Action'}));p.md.disabled=true;p.md.title='An Action block uses this key. Its own mode is set on the Action'}
+      else{PAD_MODES.forEach(function(m){p.md.appendChild(h('option',{value:m[0],text:m[1]}))});p.md.disabled=false;p.md.title='When the output turns on'}
+    }
+    if(!act&&document.activeElement!==p.md)p.md.value=c.mode;
+    p.row.classList.toggle('poff',!c.on);
+  });
+}
+
 def('ps',{cat:'hw',title:'PiSugar 3',desc:'Add-on. Battery level and charging.',w:210,ins:[],outs:[{n:'battery',t:'num'},{n:'charging',t:'bool'}],
   props:function(){return{mount:null,bat:87,chg:false}},
   ev:function(n){return[Number(n.props.bat),!!n.props.chg]},
@@ -2495,7 +2564,7 @@ function growNode(n){
 }
 function rebuildNode(n){
   var el=EL[n.id];if(el){el.root.remove();delete EL[n.id]}
-  var keep={},old=n.rt||{};['k','fired','t0','touch','mock','tot'].forEach(function(q){if(q in old)keep[q]=old[q]});n.rt=keep;
+  var keep={},old=n.rt||{};['k','kt','kr','fired','t0','touch','mock','tot'].forEach(function(q){if(q in old)keep[q]=old[q]});n.rt=keep;
   buildNode(n);
   if(sel&&sel.k==='n'&&sel.id===n.id)EL[n.id].root.classList.add('sel');
 }
@@ -2641,7 +2710,7 @@ function buildNode(n){
       L.appendChild(dv);
     }
     if(po){
-      rec.ov=h('span',{class:'ov'});R.appendChild(rec.ov);R.appendChild(h('span',{text:po.n}));
+      rec.ov=h('span',{class:'ov'});R.appendChild(rec.ov);R.appendChild(T.outLabel?T.outLabel(n,i,po,rec,row):h('span',{text:po.n}));
       row.appendChild(portEl(n,'out',i,po.t));
     }
     row.appendChild(L);row.appendChild(R);rowsW.appendChild(row);rows.push(rec);
@@ -2818,7 +2887,7 @@ vp.addEventListener('wheel',function(e){
 
 function portType(nid,k,i){var T=TY[NM[nid].type];return k==='out'?T.outs[i].t:insOf(NM[nid])[i].t}
 function canLink(from,pn,pk,pi){
-  if(pn===from.n||pk===from.k)return false;
+  if(pk===from.k||(pn===from.n&&!TY[NM[pn].type].sink))return false;
   var o=from.k==='out'?{n:from.n,i:from.p}:{n:pn,i:pi},i=from.k==='out'?{n:pn,i:pi}:{n:from.n,i:from.p};
   return compat(portType(o.n,'out',o.i),portType(i.n,'in',i.i));
 }
@@ -3049,19 +3118,59 @@ function srcInfo(n,i){
   if(SENS[s.type]&&sensorLive(s,w.from.p))return{kind:'sensor',from:s,p:w.from.p};
   return{kind:'snap',from:s};
 }
-/* ---------- the HAT's joystick and keys, as live wired inputs in generated scripts ---------- */
-function padPin(sc,name){
-  var c=claimsOf(sc).filter(function(x){return x.r.toLowerCase()===name})[0];
-  return c?c.g:null;
+/* ---------- Inputs panel: the HAT joystick and keys ---------- */
+var PAD_IDS=['up','down','left','right','press','key1','key2','key3'];
+var PAD_DIRN={up:1,down:2,left:3,right:4};
+var PAD_WIN=150;   /* how long a simulated press or release stays visible, ms */
+var PAD_MODES=[['held','held'],['pressed','pressed'],['released','released'],['long','long press']];
+var PAD_CLASS="class _Pad:\n    \"\"\"The joystick and keys on the HAT, read the way the Inputs panel is set up.\n\n    pad.held('up')          True while it is down\n    pad.pressed('key1')     True once for each press\n    pad.released('key1')    True once for each release\n    pad.long('key3')        True while it has been held longer than its hold time\n    pad.direction()         0 none, 1 up, 2 down, 3 left, 4 right\n    pad.out('key1')         whatever mode the panel gives that control\n    Use the standard names (up, down, left, right, press, key1, key2, key3) or the names you chose.\n    \"\"\"\n\n    _ATTR = {'up': 'GPIO_KEY_UP_PIN', 'down': 'GPIO_KEY_DOWN_PIN', 'left': 'GPIO_KEY_LEFT_PIN',\n             'right': 'GPIO_KEY_RIGHT_PIN', 'press': 'GPIO_KEY_PRESS_PIN',\n             'key1': 'GPIO_KEY1_PIN', 'key2': 'GPIO_KEY2_PIN', 'key3': 'GPIO_KEY3_PIN'}\n    _NUM = {'up': 1, 'down': 2, 'left': 3, 'right': 4}\n\n    def __init__(self, manual=False):\n        self._manual = manual\n        self._lock = threading.Lock()\n        self._started = False\n        self._warned = False\n        self._state = {}\n        self._cand = {}\n        self._down_at = {}\n        self._pressed = {}\n        self._released = {}\n        self._names = {}\n        for k in _PAD_CFG:\n            self._state[k] = False\n            self._names[k] = k\n        for k, c in _PAD_CFG.items():\n            self._names[c['name']] = k\n\n    # ---- reading the hardware (the one place that touches pins) ----\n    def _raw(self, k):\n        \"\"\"True while the key is physically down. Uses the Waveshare library's own button objects,\n        so this code never claims a pin the library already owns.\"\"\"\n        try:\n            o = getattr(LCD, self._ATTR[k])\n        except NameError:\n            return False                      # the screen is not set up yet\n        except AttributeError:\n            self._warn('the Waveshare library has no %s' % self._ATTR[k])\n            return False\n        if hasattr(o, 'is_active'):           # gpiozero button object: active while pressed\n            return bool(o.is_active)\n        import RPi.GPIO as GPIO               # older library: a BCM pin number, pressed reads low\n        return GPIO.input(int(o)) == 0\n\n    def _warn(self, msg):\n        if not self._warned:\n            self._warned = True\n            print('pad: ' + msg)\n\n    # ---- sampling, debounce and the press / release latches ----\n    def _tick(self):\n        now = time.monotonic()\n        for k, c in _PAD_CFG.items():\n            if not c['on']:\n                continue\n            try:\n                raw = self._raw(k)\n            except Exception as e:\n                self._warn('could not read %s (%s)' % (k, e))\n                raw = False\n            want = bool(raw) != bool(c['inv'])\n            if want == self._state[k]:\n                self._cand.pop(k, None)\n                continue\n            cand = self._cand.get(k)\n            if cand is None or cand[0] != want:\n                cand = self._cand[k] = (want, now)\n            if now - cand[1] >= c['deb']:\n                self._cand.pop(k, None)\n                with self._lock:\n                    self._state[k] = want\n                    if want:\n                        self._down_at[k] = now\n                        self._pressed[k] = True\n                    else:\n                        self._released[k] = True\n\n    def _loop(self):\n        while True:\n            try:\n                self._tick()\n            except Exception as e:\n                self._warn('reader problem (%s)' % e)\n            time.sleep(0.005)\n\n    def _poll(self):\n        if self._manual:\n            self._tick()\n        elif not self._started:\n            self._started = True\n            threading.Thread(target=self._loop, daemon=True).start()\n\n    def _key(self, name):\n        try:\n            return self._names[name]\n        except KeyError:\n            raise KeyError('no control called %r. Names: %s' % (name, ', '.join(sorted(self._names))))\n\n    # ---- what a program asks for ----\n    def held(self, name):\n        self._poll()\n        k = self._key(name)\n        return _PAD_CFG[k]['on'] and self._state[k]\n\n    def pressed(self, name):\n        self._poll()\n        k = self._key(name)\n        with self._lock:\n            return bool(self._pressed.pop(k, False)) and _PAD_CFG[k]['on']\n\n    def released(self, name):\n        self._poll()\n        k = self._key(name)\n        with self._lock:\n            return bool(self._released.pop(k, False)) and _PAD_CFG[k]['on']\n\n    def long(self, name, seconds=None):\n        self._poll()\n        k = self._key(name)\n        c = _PAD_CFG[k]\n        if not (c['on'] and self._state[k]):\n            return False\n        return time.monotonic() - self._down_at.get(k, 0) >= (c['hold'] if seconds is None else seconds)\n\n    def direction(self):\n        self._poll()\n        for k in _PAD_DIR:\n            if _PAD_CFG[k]['on'] and self._state[k]:\n                return self._NUM[k]\n        return 0\n\n    def out(self, name):\n        k = self._key(name)\n        mode = _PAD_CFG[k]['mode']\n        if mode == 'pressed':\n            return self.pressed(k)\n        if mode == 'released':\n            return self.released(k)\n        if mode == 'long':\n            return self.long(k)\n        return self.held(k)";
+/* settings with every default filled in. Only what you change is stored on the block. */
+function inpOf(n){
+  var s=(n.props&&n.props.inp)||{},c=s.ctl||{},ctl={};
+  PAD_IDS.forEach(function(id){
+    var o=c[id]||{};
+    ctl[id]={name:o.name||id,on:o.on===undefined?true:!!o.on,mode:o.mode||'held',hold:o.hold>0?+o.hold:1,inv:!!o.inv,deb:o.deb>=0?+o.deb:20};
+  });
+  var pr=s.prio&&s.prio.length===4?s.prio.slice():['up','down','left','right'];
+  return{ctl:ctl,prio:pr};
 }
-/* One script owns a pin. A key wired into an Action block belongs to controls.py, so it reads as False here. */
-function padHeld(sc,port){return P.wires.some(function(w){return w.from.n===sc.id&&w.from.p===port&&NM[w.to.n]&&NM[w.to.n].type==='action'})}
+function inpSet(n,id,field,val){
+  n.props.inp=n.props.inp||{};n.props.inp.ctl=n.props.inp.ctl||{};
+  var o=n.props.inp.ctl[id]=n.props.inp.ctl[id]||{};o[field]=val;
+}
+function inpReset(n){delete n.props.inp}
+/* a name your code can use: lower case letters, digits and _. Returns null when it clashes with another control. */
+function padName(n,id,raw){
+  var v=String(raw||'').toLowerCase().replace(/[^a-z0-9_]+/g,'_').replace(/^_+|_+$/g,'');
+  if(!v)return id;
+  var I=inpOf(n),bad=false;
+  PAD_IDS.forEach(function(o){if(o!==id&&(I.ctl[o].name===v||(o===v&&I.ctl[o].name===o)))bad=true});
+  return bad?null:v;
+}
+/* a key wired into an Action block belongs to controls.py, which holds its pin */
+function padTaken(sc,id){
+  var port=PAD_IDS.indexOf(id);
+  return P.wires.some(function(w){return w.from.n===sc.id&&w.from.p===port&&NM[w.to.n]&&NM[w.to.n].type==='action'});
+}
+/* the Python for one wired output of the HAT */
 function padExpr(sc,port,st){
-  var name=TY[sc.type].outs[port].n,pin=padPin(sc,name);
-  if(pin===null)return 'False';
-  if(padHeld(sc,port)){(st.padHeld=st.padHeld||{})[name]=1;return 'False'}
-  (st.pad=st.pad||{})[name]=pin;
-  return "pad('"+name+"')";
+  var I=inpOf(sc);
+  if(port===8){(st.pad=st.pad||{}).dir=1;return 'pad.direction()'}
+  var id=PAD_IDS[port];if(!id||!I.ctl[id].on)return 'False';
+  if(padTaken(sc,id)){(st.padHeld=st.padHeld||{})[id]=1;return 'False'}
+  (st.pad=st.pad||{})[id]=1;
+  return 'pad.out('+pyStr(id)+')';
+}
+function padPy(n){
+  var I=inpOf(n),L=['import threading','import time','',
+    '# Joystick and keys: the Inputs panel on the HAT block. One reader checks them every few milliseconds, so a quick tap is never missed.',
+    '_PAD_CFG = {'];
+  PAD_IDS.forEach(function(id){
+    var c=I.ctl[id];
+    L.push('    '+pyStr(id)+': {'+"'name': "+pyStr(c.name)+", 'on': "+(c.on?'True':'False')+", 'mode': "+pyStr(c.mode)+", 'hold': "+c.hold+", 'inv': "+(c.inv?'True':'False')+", 'deb': "+(c.deb/1000)+'},');
+  });
+  L.push('}',"_PAD_DIR = ["+I.prio.map(pyStr).join(', ')+']   # direction: the first of these that is down wins','','');
+  return L.concat(PAD_CLASS.split('\n'),['','','pad = _Pad()','','']);
 }
 function genScripts(n){
   var host=hostOf(n),T=n.type,out=[];
@@ -3089,13 +3198,8 @@ function genScripts(n){
     assign.push('bg, fg = (0, 255) if invert else (255, 0)');invLive=true;
   }
   if(lst.timer)helpers.push('import time','START = time.time()   # when this script started. Timers count from here','');
-  if(lst.pad){
-    var pk=Object.keys(lst.pad);
-    helpers.push('import RPi.GPIO as GPIO','','# Joystick and keys wired into this screen. Same library as the Waveshare demo: pull-up, pressed reads low.','_PAD = {');
-    pk.forEach(function(k){helpers.push("    '"+k+"': "+lst.pad[k]+',')});
-    helpers.push('}','GPIO.setmode(GPIO.BCM)','for _pin in _PAD.values():','    GPIO.setup(_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)','','','def pad(name):','    return GPIO.input(_PAD[name]) == 0','','');
-  }
-  if(lst.padHeld)helpers.push('# Not read here, because an Action block already uses them (controls.py owns the pin): '+Object.keys(lst.padHeld).join(', '),'');
+  if(lst.pad||(d.custom&&d.custom.on&&hasPad(T)))padPy(n).forEach(function(l){helpers.push(l)});
+  if(lst.padHeld)helpers.push('# Not read here, because an Action block already uses them (controls.py holds the pin): '+Object.keys(lst.padHeld).join(', '),'');
   if(needCpu)helpers.push('def cpu_temp():',"    with open('/sys/class/thermal/thermal_zone0/temp') as f:",'        return round(int(f.read()) / 1000, 1)','');
   if(needBat)helpers.push('import socket','','def battery_pct():','    # needs pisugar-power-manager running (see docs.pisugar.com)',"    s = socket.create_connection(('127.0.0.1', 8423), timeout=2)","    s.sendall(b'get battery\\n')",'    reply = s.recv(64).decode()','    s.close()',"    return round(float(reply.split(':')[1]), 1)",'');
   var seenS={};sens.forEach(function(x){if(seenS[x.id])return;seenS[x.id]=1;x.imp.forEach(function(l){if(helpers.indexOf(l)<0)helpers.push(l)})});
@@ -3912,7 +4016,7 @@ function openStarters(){
 }
 /* ---------- console sidebar ---------- */
 var ENGINE_JS="var K=1,V=0,R=0,py=null,INPUTS='{}';\nfunction vnow(){return V+(performance.now()-R)*K}\nself.vnowMs=vnow;\nfunction wait(ms){return new Promise(function(r){setTimeout(r,ms)})}\nself.logLine=function(t){postMessage({type:'log',text:String(t)})};\nself.getInputs=function(){return INPUTS};\nself.emitFrame=function(kind,w,h,data,note){\n  var u=data&&data.toJs?data.toJs():data;\n  var a=new Uint8ClampedArray(u);\n  postMessage({type:'frame',kind:kind,w:w,h:h,note:String(note||''),buf:a.buffer},[a.buffer]);\n};\nself.simSleep=async function(s){\n  var target=vnow()+s*1000;\n  for(;;){\n    if(K===0){await wait(100);continue}\n    var rem=(target-vnow())/K;\n    if(rem<=0)return;\n    await wait(Math.min(rem,100));\n  }\n};\nonmessage=async function(e){\n  var m=e.data;\n  try{\n    if(m.type==='init'){\n      importScripts(m.base+'pyodide.js');\n      postMessage({type:'stage',text:'Starting Python'});\n      py=await loadPyodide({indexURL:m.base});\n      postMessage({type:'stage',text:'Loading the image library'});\n      await py.loadPackage('pillow');\n      py.runPython(m.pyrt);py.runPython('prepare()');\n      postMessage({type:'ready'});\n    }else if(m.type==='inputs'){INPUTS=m.json}\n    else if(m.type==='speed'){V=vnow();R=performance.now();K=m.k}\n    else if(m.type==='run'){\n      V=Date.now();R=performance.now();K=m.k;INPUTS=m.json;\n      py.globals.set('H_SRC',m.header);py.runPython('header(H_SRC)');py.runPython('inputs_override()');\n      py.globals.set('U_SRC',m.user);\n      var r=py.runPython('user_code(U_SRC)').toJs();\n      postMessage({type:'started',note:r[1]});\n      await py.runPythonAsync(r[0],{globals:py.globals.get('_G')});\n      postMessage({type:'done'});\n    }\n  }catch(err){postMessage({type:'error',text:String(err&&err.message||err),phase:m.type})}\n};\n";
-var PYRT="# Runtime for the Makers sandbox \"Run console\": stand-in drivers, virtual clock, async sleep.\nimport sys, types, ast, io, json, time as _time, traceback\nimport js\nfrom pyodide.ffi import to_js\n\n_strf = _time.strftime\n_lt = _time.localtime\n\ndef _vt():\n    return js.vnowMs() / 1000.0\n\ndef _install_clock():\n    _time.time = _vt\n    _time.monotonic = _vt\n    _time.perf_counter = _vt\n    _time.strftime = lambda fmt, t=None: _strf(fmt, t if t is not None else _lt(_vt()))\n    def _spin(s):                      # fallback for sleeps that could not be converted: blocks, but still correct\n        end = _vt() + max(0, s)\n        while _vt() < end:\n            pass\n    _time.sleep = _spin\n\ndef _emit(kind, img, note=''):\n    im = img.convert('RGBA')\n    js.emitFrame(kind, im.width, im.height, to_js(im.tobytes()), note)\n\ndef _log(*a, **k):\n    js.logLine(' '.join(str(x) for x in a))\n\nclass _Out(io.TextIOBase):\n    def __init__(self): self.buf = ''\n    def write(self, s):\n        self.buf += s\n        while '\\n' in self.buf:\n            line, self.buf = self.buf.split('\\n', 1)\n            js.logLine(line)\n        return len(s)\n\nclass _D:\n    \"\"\"Accepts anything, so code that imports libraries we do not simulate still starts.\"\"\"\n    def __init__(self, *a, **k): pass\n    def __call__(self, *a, **k): return _D()\n    def __getattr__(self, n):\n        if n.startswith('__'): raise AttributeError(n)\n        return _D()\n    def __iter__(self): return iter(())\n    def __bool__(self): return False\n    def __int__(self): return 0\n    def __float__(self): return 0.0\n    def __enter__(self): return self\n    def __exit__(self, *a): return False\n    def __str__(self): return '0'\n    def __lt__(self, o): return False\n    def __gt__(self, o): return False\n    def __add__(self, o): return self\n    __radd__ = __sub__ = __mul__ = __rmul__ = __truediv__ = __add__\n\ndef _mod(name, **attrs):\n    m = types.ModuleType(name)\n    for k, v in attrs.items(): setattr(m, k, v)\n    sys.modules[name] = m\n    return m\n\ndef _install_drivers():\n    # Waveshare e-paper 2.13 V4\n    class EPD:\n        height = 250\n        width = 122\n        def init(self): _log('[panel] init')\n        def Clear(self, c=0xFF): _log('[panel] clear')\n        def getbuffer(self, img): return img\n        def display(self, buf): _emit('full', buf, 'display')\n        def displayPartBaseImage(self, buf): _emit('full', buf, 'full refresh, new partial baseline')\n        def displayPartial(self, buf): _emit('partial', buf, 'partial refresh')\n        def sleep(self): _log('[panel] sleep')\n    we = _mod('waveshare_epd'); ee = _mod('waveshare_epd.epd2in13_V4', EPD=EPD); we.epd2in13_V4 = ee\n    # Waveshare 1.44 in LCD HAT\n    class LCD:\n        width = 128\n        height = 128\n        def LCD_Init(self, d=0): pass\n        def LCD_Clear(self): _emit('full', __import__('PIL.Image', fromlist=['Image']).new('RGB', (128, 128), 'black'), 'clear')\n        def LCD_ShowImage(self, img, x=0, y=0): _emit('show', img, 'show')\n    _mod('LCD_1in44', LCD=LCD, SCAN_DIR_DFT=0)\n    # luma.oled SSD1306\n    class _I2C:\n        def __init__(self, *a, **k): pass\n    class ssd1306:\n        def __init__(self, serial=None, **k): self.width = 128; self.height = 64\n        def display(self, img): _emit('show', img, 'show')\n    _mod('luma'); _mod('luma.core'); _mod('luma.core.interface'); _mod('luma.core.interface.serial', i2c=_I2C)\n    _mod('luma.oled'); _mod('luma.oled.device', ssd1306=ssd1306)\n\n_STUB_ROOTS = ('gpiozero', 'picamera2', 'board', 'busio', 'digitalio', 'RPi', 'spidev', 'smbus2', 'smbus', 'lgpio', 'gpiod',\n               'photolib', 'libcamera', 'adafruit_bme280', 'adafruit_bme680', 'adafruit_dht', 'serial', 'pigpio', 'cv2', 'numpy')\n\nclass _DummyModule(types.ModuleType):\n    def __getattr__(self, n):\n        if n.startswith('__'): raise AttributeError(n)\n        return _D()\n\nclass _Finder:\n    def find_spec(self, name, path=None, target=None):\n        root = name.split('.')[0]\n        if root in _STUB_ROOTS or root.startswith('adafruit_'):\n            import importlib.machinery\n            return importlib.machinery.ModuleSpec(name, self, is_package=True)\n    def create_module(self, spec):\n        m = _DummyModule(spec.name); m.__path__ = []; return m\n    def exec_module(self, module): pass\n\ndef _install_finder():\n    sys.meta_path.append(_Finder())\n\n# ---- turn time.sleep() into an awaitable, so the page stays responsive while the program waits ----\ndef _convert(src):\n    tree = ast.parse(src)\n    sleep_names = set()\n    for n in ast.walk(tree):\n        if isinstance(n, ast.ImportFrom) and n.module == 'time':\n            for a in n.names:\n                if a.name == 'sleep': sleep_names.add(a.asname or 'sleep')\n    def is_sleep(c):\n        f = c.func\n        return (isinstance(f, ast.Attribute) and f.attr == 'sleep' and isinstance(f.value, ast.Name) and f.value.id == 'time') or \\\n               (isinstance(f, ast.Name) and f.id in sleep_names)\n    funcs = {}\n    for n in ast.walk(tree):\n        if isinstance(n, ast.FunctionDef): funcs.setdefault(n.name, []).append(n)\n    asyncs = set()\n    def waits(fn):\n        for c in ast.walk(fn):\n            if isinstance(c, ast.Call):\n                if is_sleep(c): return True\n                f = c.func\n                if isinstance(f, ast.Name) and f.id in asyncs: return True\n                if isinstance(f, ast.Attribute) and f.attr in asyncs: return True\n        return False\n    changed = True\n    while changed:\n        changed = False\n        for name, lst in funcs.items():\n            if name not in asyncs and any(waits(f) for f in lst):\n                asyncs.add(name); changed = True\n    class Tx(ast.NodeTransformer):\n        def visit_FunctionDef(self, node):\n            self.generic_visit(node)\n            if node.name in asyncs:\n                new = ast.AsyncFunctionDef(name=node.name, args=node.args, body=node.body, decorator_list=node.decorator_list, returns=node.returns)\n                return ast.copy_location(new, node)\n            return node\n        def visit_Call(self, node):\n            self.generic_visit(node)\n            if is_sleep(node):\n                return ast.copy_location(ast.Await(value=ast.Call(func=ast.Name(id='_sim_sleep', ctx=ast.Load()), args=node.args, keywords=[])), node)\n            f = node.func\n            if (isinstance(f, ast.Name) and f.id in asyncs) or (isinstance(f, ast.Attribute) and f.attr in asyncs):\n                return ast.copy_location(ast.Await(value=node), node)\n            return node\n    tree = Tx().visit(tree)\n    ast.fix_missing_locations(tree)\n    return ast.unparse(tree), len(asyncs)\n\nasync def _sim_sleep(s):\n    await js.simSleep(float(s))\n\n_G = {'__name__': '__main__', '_sim_sleep': _sim_sleep}\n\ndef prepare():\n    sys.stdout = _Out(); sys.stderr = _Out()\n    _install_clock(); _install_drivers(); _install_finder()\n\ndef header(src):\n    exec(compile(src, 'generated header', 'exec'), _G)\n\ndef inputs_override():\n    def read_inputs():\n        return json.loads(js.getInputs())\n    _G['read_inputs'] = read_inputs\n    def font(size):                     # the Pi's font files are not here, so use Pillow's built-in one\n        from PIL import ImageFont\n        try:\n            return ImageFont.load_default(size=size)\n        except Exception:\n            return ImageFont.load_default()\n    _G['font'] = font\n\ndef user_code(src):\n    try:\n        conv, n = _convert(src)\n        note = 'sleep calls converted in %d function(s)' % n\n    except SyntaxError as e:\n        conv, note = src, 'could not convert sleeps (%s); running as written' % e\n    return conv, note\n";
+var PYRT="# Runtime for the Makers sandbox \"Run console\": stand-in drivers, virtual clock, async sleep.\nimport sys, types, ast, io, json, time as _time, traceback\nimport js\nfrom pyodide.ffi import to_js\n\n_strf = _time.strftime\n_lt = _time.localtime\n\ndef _vt():\n    return js.vnowMs() / 1000.0\n\ndef _install_clock():\n    _time.time = _vt\n    _time.monotonic = _vt\n    _time.perf_counter = _vt\n    _time.strftime = lambda fmt, t=None: _strf(fmt, t if t is not None else _lt(_vt()))\n    def _spin(s):                      # fallback for sleeps that could not be converted: blocks, but still correct\n        end = _vt() + max(0, s)\n        while _vt() < end:\n            pass\n    _time.sleep = _spin\n\ndef _emit(kind, img, note=''):\n    im = img.convert('RGBA')\n    js.emitFrame(kind, im.width, im.height, to_js(im.tobytes()), note)\n\ndef _log(*a, **k):\n    js.logLine(' '.join(str(x) for x in a))\n\nclass _Out(io.TextIOBase):\n    def __init__(self): self.buf = ''\n    def write(self, s):\n        self.buf += s\n        while '\\n' in self.buf:\n            line, self.buf = self.buf.split('\\n', 1)\n            js.logLine(line)\n        return len(s)\n\nclass _D:\n    \"\"\"Accepts anything, so code that imports libraries we do not simulate still starts.\"\"\"\n    def __init__(self, *a, **k): pass\n    def __call__(self, *a, **k): return _D()\n    def __getattr__(self, n):\n        if n.startswith('__'): raise AttributeError(n)\n        return _D()\n    def __iter__(self): return iter(())\n    def __bool__(self): return False\n    def __int__(self): return 0\n    def __float__(self): return 0.0\n    def __enter__(self): return self\n    def __exit__(self, *a): return False\n    def __str__(self): return '0'\n    def __lt__(self, o): return False\n    def __gt__(self, o): return False\n    def __add__(self, o): return self\n    __radd__ = __sub__ = __mul__ = __rmul__ = __truediv__ = __add__\n\ndef _mod(name, **attrs):\n    m = types.ModuleType(name)\n    for k, v in attrs.items(): setattr(m, k, v)\n    sys.modules[name] = m\n    return m\n\ndef _install_drivers():\n    # Waveshare e-paper 2.13 V4\n    class EPD:\n        height = 250\n        width = 122\n        def init(self): _log('[panel] init')\n        def Clear(self, c=0xFF): _log('[panel] clear')\n        def getbuffer(self, img): return img\n        def display(self, buf): _emit('full', buf, 'display')\n        def displayPartBaseImage(self, buf): _emit('full', buf, 'full refresh, new partial baseline')\n        def displayPartial(self, buf): _emit('partial', buf, 'partial refresh')\n        def sleep(self): _log('[panel] sleep')\n    we = _mod('waveshare_epd'); ee = _mod('waveshare_epd.epd2in13_V4', EPD=EPD); we.epd2in13_V4 = ee\n    # Waveshare 1.44 in LCD HAT\n    class LCD:\n        width = 128\n        height = 128\n        def LCD_Init(self, d=0): pass\n        def LCD_Clear(self): _emit('full', __import__('PIL.Image', fromlist=['Image']).new('RGB', (128, 128), 'black'), 'clear')\n        def LCD_ShowImage(self, img, x=0, y=0): _emit('show', img, 'show')\n    _mod('LCD_1in44', LCD=LCD, SCAN_DIR_DFT=0)\n    # luma.oled SSD1306\n    class _I2C:\n        def __init__(self, *a, **k): pass\n    class ssd1306:\n        def __init__(self, serial=None, **k): self.width = 128; self.height = 64\n        def display(self, img): _emit('show', img, 'show')\n    _mod('luma'); _mod('luma.core'); _mod('luma.core.interface'); _mod('luma.core.interface.serial', i2c=_I2C)\n    _mod('luma.oled'); _mod('luma.oled.device', ssd1306=ssd1306)\n\n_STUB_ROOTS = ('gpiozero', 'picamera2', 'board', 'busio', 'digitalio', 'RPi', 'spidev', 'smbus2', 'smbus', 'lgpio', 'gpiod',\n               'photolib', 'libcamera', 'adafruit_bme280', 'adafruit_bme680', 'adafruit_dht', 'serial', 'pigpio', 'cv2', 'numpy')\n\nclass _DummyModule(types.ModuleType):\n    def __getattr__(self, n):\n        if n.startswith('__'): raise AttributeError(n)\n        return _D()\n\nclass _Finder:\n    def find_spec(self, name, path=None, target=None):\n        root = name.split('.')[0]\n        if root in _STUB_ROOTS or root.startswith('adafruit_'):\n            import importlib.machinery\n            return importlib.machinery.ModuleSpec(name, self, is_package=True)\n    def create_module(self, spec):\n        m = _DummyModule(spec.name); m.__path__ = []; return m\n    def exec_module(self, module): pass\n\ndef _install_finder():\n    sys.meta_path.append(_Finder())\n\n# ---- turn time.sleep() into an awaitable, so the page stays responsive while the program waits ----\ndef _convert(src):\n    tree = ast.parse(src)\n    sleep_names = set()\n    for n in ast.walk(tree):\n        if isinstance(n, ast.ImportFrom) and n.module == 'time':\n            for a in n.names:\n                if a.name == 'sleep': sleep_names.add(a.asname or 'sleep')\n    def is_sleep(c):\n        f = c.func\n        return (isinstance(f, ast.Attribute) and f.attr == 'sleep' and isinstance(f.value, ast.Name) and f.value.id == 'time') or \\\n               (isinstance(f, ast.Name) and f.id in sleep_names)\n    funcs = {}\n    for n in ast.walk(tree):\n        if isinstance(n, ast.FunctionDef): funcs.setdefault(n.name, []).append(n)\n    asyncs = set()\n    def waits(fn):\n        for c in ast.walk(fn):\n            if isinstance(c, ast.Call):\n                if is_sleep(c): return True\n                f = c.func\n                if isinstance(f, ast.Name) and f.id in asyncs: return True\n                if isinstance(f, ast.Attribute) and f.attr in asyncs: return True\n        return False\n    changed = True\n    while changed:\n        changed = False\n        for name, lst in funcs.items():\n            if name not in asyncs and any(waits(f) for f in lst):\n                asyncs.add(name); changed = True\n    class Tx(ast.NodeTransformer):\n        def visit_FunctionDef(self, node):\n            self.generic_visit(node)\n            if node.name in asyncs:\n                new = ast.AsyncFunctionDef(name=node.name, args=node.args, body=node.body, decorator_list=node.decorator_list, returns=node.returns)\n                return ast.copy_location(new, node)\n            return node\n        def visit_Call(self, node):\n            self.generic_visit(node)\n            if is_sleep(node):\n                return ast.copy_location(ast.Await(value=ast.Call(func=ast.Name(id='_sim_sleep', ctx=ast.Load()), args=node.args, keywords=[])), node)\n            f = node.func\n            if (isinstance(f, ast.Name) and f.id in asyncs) or (isinstance(f, ast.Attribute) and f.attr in asyncs):\n                return ast.copy_location(ast.Await(value=node), node)\n            return node\n    tree = Tx().visit(tree)\n    ast.fix_missing_locations(tree)\n    return ast.unparse(tree), len(asyncs)\n\nasync def _sim_sleep(s):\n    await js.simSleep(float(s))\n\n_G = {'__name__': '__main__', '_sim_sleep': _sim_sleep}\n\ndef prepare():\n    sys.stdout = _Out(); sys.stderr = _Out()\n    _install_clock(); _install_drivers(); _install_finder()\n\ndef header(src):\n    exec(compile(src, 'generated header', 'exec'), _G)\n\ndef inputs_override():\n    def read_inputs():\n        return json.loads(js.getInputs())\n    _G['read_inputs'] = read_inputs\n    _P = _G.get('_Pad')\n    if _P:\n        class _SimPad(_P):\n            def _tick(self):\n                try:\n                    self._pr = json.loads(js.getInputs()).get('padraw') or {}\n                except Exception:\n                    self._pr = {}\n                _P._tick(self)\n            def _raw(self, k):\n                return bool(self._pr.get(k))\n        _G['pad'] = _SimPad(manual=True)\n    def font(size):                     # the Pi's font files are not here, so use Pillow's built-in one\n        from PIL import ImageFont\n        try:\n            return ImageFont.load_default(size=size)\n        except Exception:\n            return ImageFont.load_default()\n    _G['font'] = font\n\ndef user_code(src):\n    try:\n        conv, n = _convert(src)\n        note = 'sleep calls converted in %d function(s)' % n\n    except SyntaxError as e:\n        conv, note = src, 'could not convert sleeps (%s); running as written' % e\n    return conv, note\n";
 var CON={open:false,tab:null,sig:'',w:460,mode:'scripts'};
 try{var _cw=parseInt(localStorage.getItem(KEY+'.conw'),10);if(_cw>=260&&_cw<=1400)CON.w=_cw}catch(e){}
 function applyCon(){
@@ -3950,7 +4054,7 @@ function conSections(){
 }
 function openConsole(spec){
   if(spec==='run'){CON.open=true;applyCon();setConMode('run');return}
-  if(spec&&CON.mode==='run')setConMode('scripts');
+  if(spec&&CON.mode!=='scripts')setConMode('scripts');
   if(spec){
     if(spec.indexOf(':')<0){var hs=piHosts();spec=hs.length?'h'+hs[0].id+':'+spec:null}
     if(spec)CON.tab=spec;
@@ -3965,6 +4069,7 @@ function openScreenConsole(n){
 function closeConsole(){CON.open=false;applyCon();stopRun()}
 function renderConsole(force){
   if(!CON.open||!P||CON.mode==='run')return;
+  if(CON.mode==='inputs'){renderInputs(force);return}
   var secs=conSections(),flat=[];
   secs.forEach(function(s){s.tabs.forEach(function(t){flat.push(t)})});
   var cur=flat.filter(function(t){return t.id===CON.tab})[0]||flat[0];
@@ -4024,7 +4129,11 @@ function runSig(){
   var ac=P.nodes.filter(function(n){return n.type==='action'&&n.props.host===hn.id}).map(function(n){return n.id});
   return P.id+'|'+hn.id+'|'+ps.join(',')+'|'+ac.join(',')+'|'+P.nodes.filter(function(n){return isPs(n.type)}).length;
 }
-function inputsFor(n){var o={};strVals(n).forEach(function(v,j){o['in'+(j+1)]=v===undefined?null:v});return JSON.stringify(o)}
+function inputsFor(n){
+  var o={};strVals(n).forEach(function(v,j){o['in'+(j+1)]=v===undefined?null:v});
+  if(hasPad(n.type)){var k=n.rt.k||{},pr={};PAD_IDS.forEach(function(id){pr[id]=!!k[id]});o.padraw=pr}   /* what the pad object reads in a custom program */
+  return JSON.stringify(o);
+}
 function pushIn(sc){var e=SIM.eng&&SIM.eng[sc.id];if(e&&e.state==='running'){var j=inputsFor(sc);if(j!==e.last){e.last=j;e.w.postMessage({type:'inputs',json:j})}}}
 
 /* ----- the optional Python engine ----- */
@@ -4087,7 +4196,7 @@ function buildRun(){
   var R=$('#conRun');if(!R)return;
   Object.keys(SIM.eng).forEach(function(id){var e=SIM.eng[id];if(e.w)try{e.w.terminate()}catch(x){}});SIM.eng={};
   R.innerHTML='';SIM.scr=[];SIM.padBtns={};KEYHELD={};SIM.sig=runSig();
-  P.nodes.forEach(function(n){if(hasPad(n.type)&&n.rt){n.rt.k={};n.rt.kt={}}});
+  P.nodes.forEach(function(n){if(hasPad(n.type)&&n.rt){n.rt.k={};n.rt.kt={};n.rt.kr={}}});
   var hn=runHost();
   if(!hn){R.appendChild(h('div',{class:'note',text:'Add a Pi to the canvas first. The Run tab then behaves like the unit: screens redraw on their refresh timing, you can press keys, move sensors and fire actions.'}));return}
   var bar=h('div',{class:'rbar'});
@@ -4144,22 +4253,27 @@ function buildRun(){
   SIM.acts={};acts.forEach(function(a){SIM.acts[a.id]=a.rt.fired||0});
   refresh();SIM.scr.forEach(function(st){if(!st.custom)runDraw(st,true)});
 }
+/* after a press or release, look again when its "just now" window ends, and when a long press is reached */
+function padLater(l,k){
+  var c=inpOf(l).ctl[k],ms=[PAD_WIN+25];if(c.mode==='long')ms.push(c.hold*1000+25);
+  ms.forEach(function(t){setTimeout(function(){refresh();pushIn(l)},t)});
+}
 function padSet(l,k,down,bt){
   if(down&&SIM.off)return;
   var e=SIM.eng&&SIM.eng[l.id],quiet=!!(e&&e.state==='running');   /* a running game would flood the log */
-  l.rt.k=l.rt.k||{};l.rt.kt=l.rt.kt||{};
+  l.rt.k=l.rt.k||{};l.rt.kt=l.rt.kt||{};l.rt.kr=l.rt.kr||{};
   if(down){
     if(l.rt.k[k])return;
-    l.rt.k[k]=true;l.rt.kt[k]=performance.now();if(bt)bt.classList.add('on');refresh();
+    l.rt.k[k]=true;l.rt.kt[k]=performance.now();if(bt)bt.classList.add('on');refresh();padLater(l,k);
     if(!quiet)runLog(ADDONS[l.type].short+' '+k+' pressed');
   }else{
     if(bt)bt.classList.remove('on');
     if(!l.rt.k[k])return;
     var held=performance.now()-(l.rt.kt[k]||0);
     if(held<120){   /* a real key is down for tens of ms; a click can be shorter than the program polls, so hold it a moment */
-      setTimeout(function(){if(l.rt.k[k]){l.rt.k[k]=false;refresh();pushIn(l)}},120-held);return;
+      setTimeout(function(){padSet(l,k,false,bt)},120-held+1);return;
     }
-    l.rt.k[k]=false;refresh();
+    l.rt.k[k]=false;l.rt.kr[k]=performance.now();refresh();padLater(l,k);
     if(!quiet)runLog(ADDONS[l.type].short+' '+k+' released');
   }
   pushIn(l);
@@ -4258,12 +4372,71 @@ function stopRun(){
   simSetK(1);
 }
 function setConMode(m){
-  if(m!=='run')m='scripts';
+  if(m!=='run'&&m!=='inputs')m='scripts';
   CON.mode=m;$('#conPanel').classList.toggle('run',m==='run');
   $all('#conModes .cm').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-m')===m)});
   if(m==='run'){if(CON.open)startRun()}else{stopRun();renderConsole(true)}
 }
 
+function openInputs(){CON.open=true;applyCon();setConMode('inputs')}
+function inputsCard(n){
+  var I=inpOf(n),card=h('div',{class:'ipanel'}),host=hostOf(n);
+  card.appendChild(h('div',{class:'sec',style:'margin:0 0 6px',text:ADDONS[n.type].title+' #'+n.id+(host?' on '+HOSTS[host.type].short+' #'+host.id:'')}));
+  var t=h('table',{class:'itab'}),hr=h('tr');
+  ['control','use','name','turns on','hold s','debounce ms','invert'].forEach(function(x){hr.appendChild(h('th',{text:x}))});
+  t.appendChild(hr);
+  PAD_IDS.forEach(function(id){
+    var c=I.ctl[id],act=padTaken(n,id),tr=h('tr'),td=function(el){var d=h('td');if(el)d.appendChild(el);tr.appendChild(d)};
+    td(h('span',{text:id}));
+    var on=h('input',{type:'checkbox'});on.checked=c.on;on.addEventListener('change',function(){inpSet(n,id,'on',on.checked);touch(n)});td(on);
+    var nm=h('input',{type:'text',spellcheck:'false',autocapitalize:'off'});nm.value=c.name;
+    nm.addEventListener('change',function(){
+      var v=padName(n,id,nm.value);
+      if(v===null){toast('Another control already has that name');nm.value=inpOf(n).ctl[id].name;return}
+      nm.value=v;inpSet(n,id,'name',v===id?undefined:v);touch(n);
+    });td(nm);
+    var md=h('select');
+    if(act){md.appendChild(h('option',{value:'action',text:'Action block'}));md.disabled=true}
+    else{PAD_MODES.forEach(function(m){md.appendChild(h('option',{value:m[0],text:m[1]}))});md.value=c.mode;md.addEventListener('change',function(){inpSet(n,id,'mode',md.value);touch(n)})}
+    td(md);
+    var hd=h('input',{type:'number',min:'0.1',step:'0.1'});hd.value=c.hold;hd.addEventListener('change',function(){var v=parseFloat(hd.value);inpSet(n,id,'hold',v>0?v:1);touch(n)});td(hd);
+    var db=h('input',{type:'number',min:'0',step:'5'});db.value=c.deb;db.addEventListener('change',function(){var v=parseFloat(db.value);inpSet(n,id,'deb',v>=0?v:20);touch(n)});td(db);
+    var iv=h('input',{type:'checkbox'});iv.checked=c.inv;iv.title='Count the key as on while it is NOT pressed';iv.addEventListener('change',function(){inpSet(n,id,'inv',iv.checked);touch(n)});td(iv);
+    t.appendChild(tr);
+  });
+  card.appendChild(t);
+  card.appendChild(h('div',{class:'sec',style:'margin:10px 0 4px',text:'Direction order'}));
+  card.appendChild(h('div',{class:'note',style:'margin:0 0 6px',text:'The direction output is the first of these that is down: 1 up, 2 down, 3 left, 4 right, 0 none.'}));
+  var pr=h('div',{class:'flex'});
+  I.prio.forEach(function(id,ix){
+    function mv(d){
+      var a=inpOf(n).prio,j=ix+d;if(j<0||j>3)return;var q=a[ix];a[ix]=a[j];a[j]=q;
+      n.props.inp=n.props.inp||{};
+      if(a.join()==='up,down,left,right')delete n.props.inp.prio;else n.props.inp.prio=a;
+      touch(n);renderInputs(true);
+    }
+    pr.appendChild(h('span',{class:'btn sm',style:'display:inline-flex;gap:6px;align-items:center;cursor:default'},[
+      h('b',{text:(ix+1)+'. '+id}),
+      h('a',{href:'#',text:'◀',onclick:function(e){e.preventDefault();mv(-1)}}),
+      h('a',{href:'#',text:'▶',onclick:function(e){e.preventDefault();mv(1)}})]));
+  });
+  card.appendChild(pr);
+  card.appendChild(h('div',{class:'flex',style:'margin-top:10px'},[
+    h('button',{class:'btn sm',text:'Back to standard',onclick:function(){inpReset(n);touch(n);renderInputs(true)}})]));
+  return card;
+}
+function renderInputs(force){
+  var body=$('#conBody'),nodes=P.nodes.filter(function(x){return hasPad(x.type)});
+  var sig=JSON.stringify([P.id,nodes.map(function(x){return[x.id,x.props.mount,x.props.inp||null,P.wires.filter(function(w){return w.from.n===x.id&&NM[w.to.n]&&NM[w.to.n].type==='action'}).length]})]);
+  var a=document.activeElement;
+  if(!force&&(sig===CON.isig||(a&&body.contains(a))))return;
+  CON.isig=sig;body.innerHTML='';
+  var wrap=h('div',{style:'padding:10px 12px'});
+  if(!nodes.length){wrap.appendChild(h('div',{class:'note',text:'Add an LCD 1.44 HAT to the canvas. Its joystick and keys get an Inputs panel here, with the same rows as on the block and the finer settings.'}));body.appendChild(wrap);return}
+  nodes.forEach(function(n){wrap.appendChild(inputsCard(n))});
+  wrap.appendChild(h('div',{class:'note',text:'Wired outputs and your own code read the same keys. In your own program: pad.held(\'up\'), pad.pressed(\'key1\'), pad.released(\'key1\'), pad.long(\'key3\'), pad.direction() and pad.out(\'key1\') (whatever mode is set above). Use the standard names or the names you chose.'}));
+  body.appendChild(wrap);
+}
 function openControls(){openConsole('controls')}
 function openRun(){openConsole('main')}
 function openProjectSetup(){openConsole('setup')}
@@ -4301,7 +4474,7 @@ P=S.projects.filter(function(p){return p.id===S.cur})[0]||S.projects[0];S.cur=P.
 projList();renderAll();commitNow();
 setTimeout(function(){if(S.projects.length&&P.name==='Welcome'&&!localStorage.getItem(KEY+'.fit')){fitView();try{localStorage.setItem(KEY+'.fit','1')}catch(e){}}},50);
 
-window.__sandbox={mkAction:mkAction,padExpr:padExpr,padPin:padPin,inputsFor:inputsFor,SIM:SIM,HOSTS:HOSTS,epdOf:epdOf,isEink:isEink,get P(){return P},ADDONS:ADDONS,setupLines:setupLines,openPart:openPart,openCatalog:openCatalog,openProjectSetup:openProjectSetup,openControls:openControls,openIdeas:openIdeas,libFor:libFor,genPhotoLib:genPhotoLib,openConsole:openConsole,renderConsole:renderConsole,conSections:conSections,CON:CON,openRun:openRun,openStarters:openStarters,projectFiles:projectFiles,startStarter:startStarter,STARTERS:STARTERS,claimsOf:claimsOf,ICON_DEFS:ICON_DEFS,ideas:ideas,genControls:genControls,actionOptions:actionOptions,libOn:libOn,TY:TY,refresh:refresh,fit:fit,genScripts:genScripts,cache:function(){return cache},buildGuidePdf:buildGuidePdf,downloadGuidePdf:downloadGuidePdf,simFire:simFire,bbPlan:bbPlan,bbText:bbText,bbScene:bbScene,sceneSvg:sceneSvg,openBoard:openBoard,openKey:openKey,bbFor:bbFor,CONN:CONN,stripSpec:stripSpec,MOCKSHOT:MOCKSHOT,addNode:addNode,select:select,setProject:setProject,newProject:newProject};
+window.__sandbox={mkAction:mkAction,padExpr:padExpr,padPy:padPy,inpOf:inpOf,padSet:padSet,inputsFor:inputsFor,SIM:SIM,HOSTS:HOSTS,epdOf:epdOf,isEink:isEink,get P(){return P},ADDONS:ADDONS,setupLines:setupLines,openPart:openPart,openCatalog:openCatalog,openProjectSetup:openProjectSetup,openControls:openControls,openIdeas:openIdeas,libFor:libFor,genPhotoLib:genPhotoLib,openConsole:openConsole,renderConsole:renderConsole,conSections:conSections,CON:CON,openRun:openRun,openStarters:openStarters,projectFiles:projectFiles,startStarter:startStarter,STARTERS:STARTERS,claimsOf:claimsOf,ICON_DEFS:ICON_DEFS,ideas:ideas,genControls:genControls,actionOptions:actionOptions,libOn:libOn,TY:TY,refresh:refresh,fit:fit,genScripts:genScripts,cache:function(){return cache},buildGuidePdf:buildGuidePdf,downloadGuidePdf:downloadGuidePdf,simFire:simFire,bbPlan:bbPlan,bbText:bbText,bbScene:bbScene,sceneSvg:sceneSvg,openBoard:openBoard,openKey:openKey,bbFor:bbFor,CONN:CONN,stripSpec:stripSpec,MOCKSHOT:MOCKSHOT,addNode:addNode,select:select,setProject:setProject,newProject:newProject};
 })();
 </script>
 </body>
